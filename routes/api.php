@@ -1,8 +1,9 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Models\User;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 require __DIR__ . '/auth.php';
 
@@ -20,3 +21,5 @@ Route::get('/users', function () {
         'items' => User::all()
     ]);
 });
+
+Route::post('/login', [AuthenticatedSessionController::class, 'store']);
