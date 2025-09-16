@@ -3,6 +3,8 @@
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ItemController;
+use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 require __DIR__ . '/auth.php';
@@ -23,3 +25,9 @@ Route::get('/users', function () {
 });
 
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+
+
+Route::apiResource('/collections', CollectionController::class);
+Route::apiResource('/items', ItemController::class);
+
+Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
