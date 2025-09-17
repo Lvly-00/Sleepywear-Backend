@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\Item;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\User;
+use App\Models\Collection;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -20,5 +22,10 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
             'password' => bcrypt('password'),
         ]);
+
+        Collection::factory()
+            ->count(5)
+            ->has(Item::factory()->count(10))
+            ->create();
     }
 }
