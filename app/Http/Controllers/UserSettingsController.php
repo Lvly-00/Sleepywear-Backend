@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -40,6 +41,8 @@ class UserSettingsController extends Controller
 
     public function updatePassword(Request $request)
     {
+
+        Log::info('Password request data:', $request->all());
         $request->validate([
             'current_password' => 'required',
             'new_password' => 'required|min:6|confirmed',
