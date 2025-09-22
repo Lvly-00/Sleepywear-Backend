@@ -12,4 +12,10 @@ class OrderItemController extends Controller
         $items = OrderItem::with('order', 'customers.order')->orderBy('created_at', 'asc')->paginate(25);
         return response()->json($items);
     }
+
+    public function show(OrderItem $item)
+    {
+        $item->load('customers.order');
+        return response()->json($item);
+    }
 }
