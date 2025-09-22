@@ -6,9 +6,12 @@ use App\Models\Invoice;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'invoice_id',
         'first_name',
@@ -17,21 +20,24 @@ class Order extends Model
         'contact_number',
         'social_handle',
         'order_date',
-        'payment_image',
-        'payment_method',
         'total',
-        'payment_status',
+        'delivery_status',
         'courier',
-        'delivery_fee',
-        'delivery_status'
+        'delivery_fee'
     ];
 
-    public function invoice(): BelongsTo
+    public function invoice()
     {
         return $this->belongsTo(Invoice::class);
     }
-    public function items(): HasMany
+
+    public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
     }
 }

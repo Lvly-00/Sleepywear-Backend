@@ -15,9 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('invoice_ref')->unique();
             $table->date('issue_date')->nullable();
-            $table->date('sent_date')->nullable();
             $table->string('customer_name')->nullable();
-            $table->string('status')->default('draft');
+            $table->enum('status', ['draft', 'sent', 'paid'])->default('draft');
             $table->text('notes')->nullable();
             $table->decimal('total', 12, 2)->default(0);
             $table->timestamps();

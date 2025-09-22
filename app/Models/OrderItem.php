@@ -10,8 +10,8 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id',
-        'product_id',
-        'product_name',
+        'item_id',
+        'item_name',
         'price',
         'quantity',
         'notes',
@@ -22,6 +22,12 @@ class OrderItem extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(Item::class); 
+    }
+
     public function customers(): HasMany
     {
         return $this->hasMany(OrderItemCustomer::class);

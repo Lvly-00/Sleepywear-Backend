@@ -19,7 +19,7 @@ return new class extends Migration
             $table->decimal('price', 10, 2);
             $table->text('notes')->nullable();
             $table->integer('collection_stock_qty')->default(0);
-            $table->foreignId('collection_id')->constrained()->onDelete('cascade');
+            $table->foreignId('collection_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
         });
     }

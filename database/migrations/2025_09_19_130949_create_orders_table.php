@@ -19,14 +19,11 @@ return new class extends Migration
             $table->text('address');
             $table->string('contact_number');
             $table->string('social_handle');
-            $table->timestamp('order_date');
-            $table->string('payment_image')->nullable();
-            $table->string('payment_method')->nullable();
+            $table->timestamp('order_date')->useCurrent();
             $table->decimal('total', 12, 2)->default(0);
-            $table->string('payment_status')->default('pending');
+            $table->enum('delivery_status', ['pending', 'shipped', 'delivered', 'cancelled'])->default('pending');
             $table->string('courier')->nullable();
             $table->decimal('delivery_fee', 12, 2)->default(0);
-            $table->string('delivery_status')->default('pending');
             $table->timestamps();
         });
     }
