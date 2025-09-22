@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,7 @@ class InvoiceController extends Controller
     public function download(Invoice $invoice)
     {
         $invoice->load('orders.items');
-        $pdf = \PDF::loadView('invoices.pdf', ['invoice' => $invoice]);
-        return $pdf->download("invoice-{invoice->invoice_ref}.pdf");
+        $pdf = Pdf::loadView('invoices.pdf', ['invoice' => $invoice]);
+        return $pdf->download("invoice-{$invoice->invoice_ref}.pdf");
     }
 }
