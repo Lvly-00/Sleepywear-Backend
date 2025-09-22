@@ -30,4 +30,9 @@ class Item extends Model
             ? asset('storage/' . $this->image)
             : null;
     }
+
+    public function collection()
+    {
+        return $this->belongsTo(Collection::class);
+    }
 }

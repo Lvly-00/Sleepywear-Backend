@@ -1,23 +1,27 @@
 <?php
 
-use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ItemController;
 use App\Http\Controllers\CollectionController;
+use App\Http\Controllers\ItemController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OrderItemController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\UserSettingsController;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 require __DIR__ . '/auth.php';
 
-
-// Route::post('/login', [AuthenticatedSessionController::class, 'store']);
-
-
 Route::middleware('auth:sanctum')->group(function () {
-    Route::apiResource('/collections', CollectionController::class);
-    Route::apiResource('/items', ItemController::class);
+    // API resources for CRUD
+    Route::apiResource('collections', CollectionController::class);
+    Route::apiResource('items', ItemController::class);
+    Route::apiResource('orders', OrderController::class);
+    Route::apiResource('invoices', InvoiceController::class);
+    Route::apiResource('order-items', OrderItemController::class);
+
+    // Custom routes
     Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
+    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
 
     // User settings
     Route::get('/user/settings', [UserSettingsController::class, 'show']);
