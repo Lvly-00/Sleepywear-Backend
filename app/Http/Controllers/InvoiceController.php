@@ -18,4 +18,11 @@ class InvoiceController extends Controller
         $invoice->load('orders.items.customers', 'orders');
         return response()->json($invoice);
     }
+
+    public function download(Invoice $invoice)
+    {
+        $invoice->load('orders.items');
+        $pdf = \PDF::loadView('invoices.pdf', ['invoice' => $invoice]);
+        return $pdf->download("invoice-{invoice->invoice_ref}.pdf");
+    }
 }
