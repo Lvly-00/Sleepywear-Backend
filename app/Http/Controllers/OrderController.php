@@ -117,4 +117,10 @@ class OrderController extends Controller
         $order->update($request->only(['first_name', 'last_name', 'address', 'contact_number', 'social_handle', 'payment_method', 'payment_image', 'payment_status', 'courier', 'delivery_fee', 'delivery_status']));
         return response()->json(['message' => 'Order updated', 'order' => $order]);
     }
+
+    public function destroy(Order $order)
+    {
+        $order->delete();
+        return response()->json(['message' => 'Order deleted']);
+    }
 }
