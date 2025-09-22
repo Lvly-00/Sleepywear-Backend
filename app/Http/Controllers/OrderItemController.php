@@ -18,4 +18,10 @@ class OrderItemController extends Controller
         $item->load('customers.order');
         return response()->json($item);
     }
+
+    public function customers(OrderItem $item)
+    {
+        $customers = $item->customers()->with('order')->orderBy('created_at', 'asc')->get();
+        return response()->json($customers);
+    }
 }
