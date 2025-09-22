@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Custom routes
     Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
     Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
+    Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
 
     // User settings
     Route::get('/user/settings', [UserSettingsController::class, 'show']);

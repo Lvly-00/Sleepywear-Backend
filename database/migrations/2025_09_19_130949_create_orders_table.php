@@ -24,6 +24,13 @@ return new class extends Migration
             $table->enum('delivery_status', ['pending', 'shipped', 'delivered', 'cancelled'])->default('pending');
             $table->string('courier')->nullable();
             $table->decimal('delivery_fee', 12, 2)->default(0);
+
+            // Payment-related fields
+            $table->enum('payment_status', ['pending', 'paid'])->default('pending');
+            $table->enum('payment_method', ['Cash', 'GCash'])->nullable();
+            $table->string('payment_image')->nullable();
+            $table->decimal('total_paid', 12, 2)->default(0);
+
             $table->timestamps();
         });
     }
