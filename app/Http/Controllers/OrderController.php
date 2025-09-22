@@ -111,4 +111,10 @@ class OrderController extends Controller
         $order->load('items.customers');
         return response()->json($order);
     }
+
+    public function update(Request $request, Order $order)
+    {
+        $order->update($request->only(['first_name', 'last_name', 'address', 'contact_number', 'social_handle', 'payment_method', 'payment_image', 'payment_status', 'courier', 'delivery_fee', 'delivery_status']));
+        return response()->json(['message' => 'Order updated', 'order' => $order]);
+    }
 }
