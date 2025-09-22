@@ -4,8 +4,6 @@ namespace App\Models;
 
 use App\Models\Invoice;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
@@ -23,7 +21,11 @@ class Order extends Model
         'total',
         'delivery_status',
         'courier',
-        'delivery_fee'
+        'delivery_fee',
+        'payment_status',
+        'payment_method',
+        'payment_image',
+        'total_paid'
     ];
 
     public function invoice()
@@ -36,6 +38,7 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    // Single latest payment relation
     public function payment()
     {
         return $this->hasOne(Payment::class);
