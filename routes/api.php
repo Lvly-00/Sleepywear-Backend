@@ -5,6 +5,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\UserSettingsController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
