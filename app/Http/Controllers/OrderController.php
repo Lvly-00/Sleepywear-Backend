@@ -104,4 +104,11 @@ class OrderController extends Controller
             return response()->json(['error' => 'Failed to create invoice', 'details' => $e->getMessage()], 500);
         }
     }
+
+    // show single order
+    public function show(Order $order)
+    {
+        $order->load('items.customers');
+        return response()->json($order);
+    }
 }
