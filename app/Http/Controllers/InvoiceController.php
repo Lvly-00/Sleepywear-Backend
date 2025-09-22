@@ -12,4 +12,10 @@ class InvoiceController extends Controller
         $invoices = Invoice::with('orders.items')->orderBy('created_at', 'desc')->paginate(25);
         return response()->json($invoices);
     }
+
+    public function show(Invoice $invoice)
+    {
+        $invoice->load('orders.items.customers', 'orders');
+        return response()->json($invoice);
+    }
 }
