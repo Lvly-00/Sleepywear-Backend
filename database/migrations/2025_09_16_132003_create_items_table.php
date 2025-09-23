@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('image')->nullable();
             $table->decimal('price', 10, 2);
-            $table->boolean('is_taken')->default(false);
+            $table->enum('status', ['available', 'taken'])->default('available');
             $table->text('notes')->nullable();
             $table->integer('collection_stock_qty')->default(0);
             $table->foreignId('collection_id')->constrained()->cascadeOnDelete();

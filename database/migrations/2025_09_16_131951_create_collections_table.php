@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->date('release_date');
             $table->integer('qty')->default(0);
-            $table->enum('status', ['draft', 'active', 'archived'])->default('draft');
+            $table->enum('status', ['Active', 'Sold Out'])->default('Active');
             $table->integer('stock_qty')->default(0);
             $table->decimal('total_sales', 12, 2)->default(0);
             $table->timestamps();

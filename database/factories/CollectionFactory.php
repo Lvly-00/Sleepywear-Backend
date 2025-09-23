@@ -20,7 +20,7 @@ class CollectionFactory extends Factory
             'name' => $this->faker->words(2, true) . ' Collection',
             'release_date' => $this->faker->date(),
             'qty' => $this->faker->numberBetween(50, 500),
-            'status' => $this->faker->randomElement(['draft', 'active', 'archived']),
+            'status' => $this->faker->randomElement(['Active', 'Sold Out']),
             'total_sales' => $this->faker->randomFloat(2, 1000, 100000),
             'stock_qty' => $this->faker->numberBetween(10, 400),
         ];

@@ -25,7 +25,12 @@ class DatabaseSeeder extends Seeder
 
         Collection::factory()
             ->count(5)
-            ->has(Item::factory()->count(10))
-            ->create();
+            ->create()
+            ->each(function ($collection) {
+                Item::factory()
+                    ->count(10)
+                    ->for($collection) // link items to this collection
+                    ->create();
+            });
     }
 }

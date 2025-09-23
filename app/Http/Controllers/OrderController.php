@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Invoice;
 use App\Models\OrderItem;
+use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -33,9 +34,10 @@ class OrderController extends Controller
     {
         try {
             return DB::transaction(function () use ($request) {
+                // Create invoice
                 $invoice = Invoice::create([
                     'customer_name' => $request->invoice['customer_name'],
-                    'notes' => $request->invoice['notes'],
+                    'notes' => $request->invoice['notes'] ?? null,
                     'status' => 'draft',
                     'total' => 0,
                 ]);
@@ -43,33 +45,35 @@ class OrderController extends Controller
                 $total = 0;
 
                 foreach ($request->orders as $orderData) {
+                    // Create order
                     $order = Order::create([
                         'first_name' => $orderData['first_name'],
                         'last_name' => $orderData['last_name'],
                         'address' => $orderData['address'],
                         'contact_number' => $orderData['contact_number'],
-                        'social_handle' => $orderData['social_handle'],
+                        'social_handle' => $orderData['social_handle'] ?? null,
                         'invoice_id' => $invoice->id,
                         'payment_status' => 'pending',
                         'total' => 0,
                     ]);
 
                     $orderTotal = 0;
-                    foreach ($orderData['items'] as $item) {
+
+                    foreach ($orderData['items'] as $itemData) {
+                        // Create order item
                         OrderItem::create([
                             'order_id' => $order->id,
-                            'item_id' => $item['item_id'],
-                            'item_name' => $item['item_name'],
-                            'price' => $item['price'],
-                            'quantity' => $item['quantity'],
+                            'item_id' => $itemData['item_id'],
+                            'item_name' => $itemData['item_name'],
+                            'price' => $itemData['price'],
+                            'quantity' => $itemData['quantity'],
                         ]);
 
-                        // Mark item as taken
-                        DB::table('items')
-                            ->where('id', $item['item_id'])
-                            ->update(['is_taken' => true]);
+                        // Update item status to "taken"
+                        Item::where('id', $itemData['item_id'])
+                            ->update(['status' => 'taken']);
 
-                        $orderTotal += $item['price'] * $item['quantity'];
+                        $orderTotal += $itemData['price'] * $itemData['quantity'];
                     }
 
                     $order->update(['total' => $orderTotal]);
@@ -83,8 +87,7 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Order creation failed',
-                'message'
-                => $e->getMessage(),
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
