@@ -60,6 +60,7 @@ class OrderController extends Controller
                             'item_name' => $item['item_name'],
                             'price' => $item['price'],
                             'quantity' => $item['quantity'],
+
                         ]);
 
                         $orderTotal += $item['price'] * $item['quantity'];

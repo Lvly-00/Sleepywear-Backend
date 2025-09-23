@@ -30,7 +30,7 @@ return new class extends Migration
             $table->enum('payment_method', ['Cash', 'GCash'])->nullable();
             $table->string('payment_image')->nullable();
             $table->decimal('total_paid', 12, 2)->default(0);
-
+            $table->timestamp('payment_date')->nullable()->after('payment_status');
             $table->timestamps();
         });
     }
