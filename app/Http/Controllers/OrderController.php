@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    // Fetch all orders with their items
+    // Fetch all orders with their items (pending on top)
     public function index()
     {
         $orders = Order::with('items')
@@ -27,7 +27,6 @@ class OrderController extends Controller
 
         return response()->json($orders);
     }
-
 
     // Create invoice + orders + items in one request
     public function store(Request $request)
@@ -63,8 +62,12 @@ class OrderController extends Controller
                             'item_name' => $item['item_name'],
                             'price' => $item['price'],
                             'quantity' => $item['quantity'],
-
                         ]);
+
+                        // Mark item as taken
+                        DB::table('items')
+                            ->where('id', $item['item_id'])
+                            ->update(['is_taken' => true]);
 
                         $orderTotal += $item['price'] * $item['quantity'];
                     }
@@ -80,7 +83,8 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Order creation failed',
-                'message' => $e->getMessage(),
+                'message'
+                => $e->getMessage(),
             ], 500);
         }
     }
@@ -95,14 +99,11 @@ class OrderController extends Controller
     // Update order including payment
     public function update(Request $request, Order $order)
     {
-        // Handle image upload if present
         if ($request->hasFile('payment_image')) {
             $imagePath = $request->file('payment_image')->store('payments', 'public');
             $request->merge(['payment_image' => $imagePath]);
         }
 
-
-        // If payment method & total exist, mark as paid
         if ($request->filled('payment_method') && $request->filled('total')) {
             $request->merge(['payment_status' => 'paid']);
         }
