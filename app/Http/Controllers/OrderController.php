@@ -13,7 +13,10 @@ class OrderController extends Controller
     // Fetch all orders with their items
     public function index()
     {
-        $orders = Order::with('items')->get();
+        $orders = Order::with('items')
+            ->orderByRaw("CASE WHEN payment_status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $orders->map(function ($order) {
             $order->payment_image_url = $order->payment_image
