@@ -11,19 +11,14 @@ class ItemController extends Controller
     // 🔹 List all items, with optional filtering by collection
     public function index(Request $request)
     {
-        $query = Item::query();
-
-        if ($request->has('collection_id')) {
-            $query->where('collection_id', $request->collection_id);
-        }
-
-        $items = $query->get();
-
-        // Append image_url for frontend
-        $items->map(function ($item) {
-            $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
-            return $item;
-        });
+        $collectionId = $request->query('collection_id');
+        $items = Item::where('collection_id', $collectionId)
+            ->orderByRaw("CASE WHEN status = 'available' THEN 0 WHEN status = 'taken' THEN 1 ELSE 2 END ")
+            ->get()
+            ->map(function ($item) {
+                $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
+                return $item;
+            });
 
         return response()->json($items);
     }

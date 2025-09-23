@@ -24,7 +24,8 @@ class ItemFactory extends Factory
             'price' => $this->faker->randomFloat(2, 10, 500),
             'notes' => $this->faker->sentence(),
             'collection_stock_qty' => $this->faker->numberBetween(1, 100),
-            'collection_id' => Collection::factory(),
+            'collection_id' => Collection::factory(), // will create a new collection if not specified
+            'status' => $this->faker->randomElement(['available', 'taken']),
         ];
     }
 }

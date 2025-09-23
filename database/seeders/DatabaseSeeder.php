@@ -18,14 +18,19 @@ class DatabaseSeeder extends Seeder
         User::factory(10)->create();
 
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name' => 'SleepyWear',
+            'email' => 'lovelypintes@gmail.com',
             'password' => bcrypt('password'),
         ]);
 
         Collection::factory()
             ->count(5)
-            ->has(Item::factory()->count(10))
-            ->create();
+            ->create()
+            ->each(function ($collection) {
+                Item::factory()
+                    ->count(10)
+                    ->for($collection) // link items to this collection
+                    ->create();
+            });
     }
 }

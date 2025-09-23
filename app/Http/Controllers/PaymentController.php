@@ -29,11 +29,12 @@ class PaymentController extends Controller
             'payment_image' => $data['payment_image'] ?? null,
             'payment_status' => $data['payment_status'],
             'total_paid' => $data['total_paid'],
+            'payment_date' => $data['payment_status'] === 'paid' ? now() : null,
         ]);
 
         return response()->json([
             'message' => 'Payment recorded successfully',
-            'order' => $order,
+            'order' => $order->fresh(),
         ], 201);
     }
 }

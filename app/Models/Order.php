@@ -25,7 +25,9 @@ class Order extends Model
         'payment_status',
         'payment_method',
         'payment_image',
-        'total_paid'
+        'total_paid',
+        'payment_date',
+
     ];
 
     public function invoice()

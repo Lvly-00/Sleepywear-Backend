@@ -5,15 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Invoice;
 use App\Models\OrderItem;
+use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    // Fetch all orders with their items
+    // Fetch all orders with their items (pending on top)
     public function index()
     {
-        $orders = Order::with('items')->get();
+        $orders = Order::with('items')
+            ->orderByRaw("CASE WHEN payment_status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $orders->map(function ($order) {
             $order->payment_image_url = $order->payment_image
@@ -25,15 +29,15 @@ class OrderController extends Controller
         return response()->json($orders);
     }
 
-
     // Create invoice + orders + items in one request
     public function store(Request $request)
     {
         try {
             return DB::transaction(function () use ($request) {
+                // Create invoice
                 $invoice = Invoice::create([
                     'customer_name' => $request->invoice['customer_name'],
-                    'notes' => $request->invoice['notes'],
+                    'notes' => $request->invoice['notes'] ?? null,
                     'status' => 'draft',
                     'total' => 0,
                 ]);
@@ -41,28 +45,35 @@ class OrderController extends Controller
                 $total = 0;
 
                 foreach ($request->orders as $orderData) {
+                    // Create order
                     $order = Order::create([
                         'first_name' => $orderData['first_name'],
                         'last_name' => $orderData['last_name'],
                         'address' => $orderData['address'],
                         'contact_number' => $orderData['contact_number'],
-                        'social_handle' => $orderData['social_handle'],
+                        'social_handle' => $orderData['social_handle'] ?? null,
                         'invoice_id' => $invoice->id,
                         'payment_status' => 'pending',
                         'total' => 0,
                     ]);
 
                     $orderTotal = 0;
-                    foreach ($orderData['items'] as $item) {
+
+                    foreach ($orderData['items'] as $itemData) {
+                        // Create order item
                         OrderItem::create([
                             'order_id' => $order->id,
-                            'item_id' => $item['item_id'],
-                            'item_name' => $item['item_name'],
-                            'price' => $item['price'],
-                            'quantity' => $item['quantity'],
+                            'item_id' => $itemData['item_id'],
+                            'item_name' => $itemData['item_name'],
+                            'price' => $itemData['price'],
+                            'quantity' => $itemData['quantity'],
                         ]);
 
-                        $orderTotal += $item['price'] * $item['quantity'];
+                        // Update item status to "taken"
+                        Item::where('id', $itemData['item_id'])
+                            ->update(['status' => 'taken']);
+
+                        $orderTotal += $itemData['price'] * $itemData['quantity'];
                     }
 
                     $order->update(['total' => $orderTotal]);
@@ -91,14 +102,11 @@ class OrderController extends Controller
     // Update order including payment
     public function update(Request $request, Order $order)
     {
-        // Handle image upload if present
         if ($request->hasFile('payment_image')) {
             $imagePath = $request->file('payment_image')->store('payments', 'public');
             $request->merge(['payment_image' => $imagePath]);
         }
 
-
-        // If payment method & total exist, mark as paid
         if ($request->filled('payment_method') && $request->filled('total')) {
             $request->merge(['payment_status' => 'paid']);
         }

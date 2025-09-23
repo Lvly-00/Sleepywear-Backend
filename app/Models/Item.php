@@ -16,6 +16,7 @@ class Item extends Model
         'name',
         'image',
         'price',
+        'status',
         'notes',
         'collection_stock_qty',
         'collection_id',
