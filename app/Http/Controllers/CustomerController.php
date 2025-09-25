@@ -21,23 +21,31 @@ class CustomerController extends Controller
         return $query->get();
     }
 
-    public function storeOrUpdate(Request $request)
+    public function store(Request $request)
     {
-        // Search existing customer by contact number or name
-        $customer = Customer::where('contact_number', $request->contact_number)
-            ->orWhere(function ($q) use ($request) {
-                $q->where('first_name', $request->first_name)
-                    ->where('last_name', $request->last_name);
-            })->first();
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email',
+            'phone' => 'nullable|string',
+            'address' => 'nullable|string',
+        ]);
+        return Customer::create($validated);
+    }
 
-        if ($customer) {
-            // Update customer if info changed
-            $customer->update($request->only(['first_name', 'last_name', 'address', 'contact_number', 'social_handle']));
-        } else {
-            // Create new customer if not found
-            $customer = Customer::create($request->only(['first_name', 'last_name', 'address', 'contact_number', 'social_handle']));
-        }
-
+    public function show(Customer $customer)
+    {
         return $customer;
+    }
+
+    public function update(Request $request, Customer $customer)
+    {
+        $customer->update($request->only('name', 'email', 'phone', 'address'));
+        return $customer;
+    }
+
+    public function destroy(Customer $customer)
+    {
+        $customer->delete();
+        return response()->noContent();
     }
 }
