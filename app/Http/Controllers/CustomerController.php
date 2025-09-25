@@ -24,10 +24,11 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'nullable|email',
-            'phone' => 'nullable|string',
-            'address' => 'nullable|string',
+            'first_name' => 'required|string|max:255',
+            'last_name'  => 'nullable|string|max:255',
+            'email'      => 'nullable|email',
+            'contact_number' => 'nullable|string',
+            'address'    => 'nullable|string',
         ]);
         return Customer::create($validated);
     }
@@ -39,7 +40,16 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer)
     {
-        $customer->update($request->only('name', 'email', 'phone', 'address'));
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name'  => 'nullable|string|max:255',
+            'email'      => 'nullable|email',
+            'contact_number' => 'nullable|string',
+            'address'    => 'nullable|string',
+        ]);
+
+        $customer->update($validated);
+
         return $customer;
     }
 
