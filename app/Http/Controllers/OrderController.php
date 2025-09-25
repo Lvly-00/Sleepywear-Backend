@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Invoice;
 use App\Models\OrderItem;
 use App\Models\Item;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +20,7 @@ class OrderController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Add payment image URL if exists
         $orders->map(function ($order) {
             $order->payment_image_url = $order->payment_image
                 ? asset('storage/' . $order->payment_image)
@@ -34,7 +36,7 @@ class OrderController extends Controller
     {
         try {
             return DB::transaction(function () use ($request) {
-                // Create invoice
+
                 $invoice = Invoice::create([
                     'customer_name' => $request->invoice['customer_name'],
                     'notes' => $request->invoice['notes'] ?? null,
@@ -45,22 +47,19 @@ class OrderController extends Controller
                 $total = 0;
 
                 foreach ($request->orders as $orderData) {
-                    // Create order
                     $order = Order::create([
                         'first_name' => $orderData['first_name'],
                         'last_name' => $orderData['last_name'],
                         'address' => $orderData['address'],
                         'contact_number' => $orderData['contact_number'],
-                        'social_handle' => $orderData['social_handle'] ?? null,
+                        'social_handle' => $orderData['social_handle'],
                         'invoice_id' => $invoice->id,
                         'payment_status' => 'pending',
                         'total' => 0,
                     ]);
 
                     $orderTotal = 0;
-
                     foreach ($orderData['items'] as $itemData) {
-                        // Create order item
                         OrderItem::create([
                             'order_id' => $order->id,
                             'item_id' => $itemData['item_id'],
@@ -69,7 +68,6 @@ class OrderController extends Controller
                             'quantity' => $itemData['quantity'],
                         ]);
 
-                        // Update item status to "taken"
                         Item::where('id', $itemData['item_id'])
                             ->update(['status' => 'taken']);
 
@@ -92,6 +90,7 @@ class OrderController extends Controller
         }
     }
 
+
     // Show single order
     public function show(Order $order)
     {
@@ -99,7 +98,7 @@ class OrderController extends Controller
         return response()->json($order);
     }
 
-    // Update order including payment
+    // Update order including payment details
     public function update(Request $request, Order $order)
     {
         if ($request->hasFile('payment_image')) {
