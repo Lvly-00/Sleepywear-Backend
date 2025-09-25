@@ -5,10 +5,11 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\UserSettingsController;
-use App\Http\Controllers\DashboardController;
 
 require __DIR__ . '/auth.php';
 
@@ -19,6 +20,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('invoices', InvoiceController::class);
     Route::apiResource('order-items', OrderItemController::class);
+    Route::apiResource('customers', CustomerController::class);
+
 
     // Custom routes
     Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
