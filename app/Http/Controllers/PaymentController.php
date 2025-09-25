@@ -10,7 +10,7 @@ class PaymentController extends Controller
     public function storePayment(Request $request, $orderId)
     {
         $data = $request->validate([
-            'payment_method' => 'required|in:Cash,GCash',
+            'payment_method' => 'required|in:Cash,GCash,Paypal,Bank',
             'payment_image' => 'nullable|image|max:2048',
             'total_paid' => 'required|numeric|min:0',
             'payment_status' => 'required|in:pending,paid',

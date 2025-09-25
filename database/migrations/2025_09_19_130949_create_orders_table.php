@@ -27,7 +27,7 @@ return new class extends Migration
 
             // Payment-related fields
             $table->enum('payment_status', ['pending', 'paid'])->default('pending');
-            $table->enum('payment_method', ['Cash', 'GCash'])->nullable();
+            $table->enum('payment_method', ['Cash', 'GCash', 'Paypal', 'Bank'])->nullable();
             $table->string('payment_image')->nullable();
             $table->decimal('total_paid', 12, 2)->default(0);
             $table->timestamp('payment_date')->nullable()->after('payment_status');
