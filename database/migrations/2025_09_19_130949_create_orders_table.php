@@ -21,11 +21,6 @@ return new class extends Migration
             $table->string('social_handle');
             $table->timestamp('order_date')->useCurrent();
             $table->decimal('total', 12, 2)->default(0);
-            $table->enum('delivery_status', ['pending', 'shipped', 'delivered', 'cancelled'])->default('pending');
-            $table->string('courier')->nullable();
-            $table->decimal('delivery_fee', 12, 2)->default(0);
-
-            // Payment-related fields
             $table->enum('payment_status', ['pending', 'paid'])->default('pending');
             $table->enum('payment_method', ['Cash', 'GCash', 'Paypal', 'Bank'])->nullable();
             $table->string('payment_image')->nullable();

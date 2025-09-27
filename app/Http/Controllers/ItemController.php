@@ -55,6 +55,8 @@ class ItemController extends Controller
             'price' => $request->price,
             'notes' => $request->notes,
             'image' => $imagePath,
+            'status' => 'available',
+
         ]);
 
         $item->image_url = $item->image ? asset('storage/' . $item->image) : null;

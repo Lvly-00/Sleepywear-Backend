@@ -119,9 +119,6 @@ class OrderController extends Controller
             'payment_method',
             'payment_image',
             'payment_status',
-            'courier',
-            'delivery_fee',
-            'delivery_status',
             'total'
         ]));
 
