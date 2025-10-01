@@ -59,7 +59,7 @@ class CollectionController extends Controller
         return response()->json($collection);
     }
 
-    // 🔹 Update a collection
+    // Update a collection
     public function update(Request $request, Collection $collection)
     {
         $collection->update($request->only('name', 'release_date'));
