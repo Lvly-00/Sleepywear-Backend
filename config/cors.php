@@ -15,15 +15,32 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'password-reset', 'forgot-password'],
-    'allowed_methods' => ['*'],
-    'allowed_origins' => [
-        'http://localhost:5173',
-        'https://strong-roses-wish.loca.lt',
+  
+    'paths' => [
+        'api/*',
+        'sanctum/csrf-cookie',
+        'login',
+        'logout',
+        'register',
+        'forgot-password',
+        'reset-password',
+        'password-reset',
     ],
+
+    'allowed_methods' => ['*'],
+
+    'allowed_origins' => [
+        'http://localhost:5173', // local dev (Vite)
+        'https://sleepywear-frontend.onrender.com', // deployed frontend
+    ],
+
     'allowed_origins_patterns' => [],
+
     'allowed_headers' => ['*'],
+
     'exposed_headers' => [],
+
     'max_age' => 0,
+
     'supports_credentials' => true,
 ];
