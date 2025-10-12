@@ -18,7 +18,7 @@ RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader \
 FROM php:8.2-fpm-alpine
 
 # Install necessary packages
-RUN apk add --no-cache nginx curl zip unzip git supervisor bash
+RUN apk add --no-cache nginx supervisor bash curl zip unzip git
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
