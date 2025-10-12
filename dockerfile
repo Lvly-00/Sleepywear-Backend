@@ -32,13 +32,14 @@ COPY . .
 # Copy vendor from build stage
 COPY --from=vendor /app/vendor ./vendor
 
-# Ensure writable directories
+# Ensure writable directories with correct ownership
 RUN mkdir -p storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
     bootstrap/cache \
     /var/log \
+    && chown -R www-data:www-data storage bootstrap/cache /var/log \
     && chmod -R 775 storage bootstrap/cache /var/log \
     && touch /var/log/php-fpm.log /var/log/php-fpm-error.log \
     /var/log/nginx.log /var/log/nginx-error.log
@@ -56,5 +57,8 @@ RUN php artisan config:clear \
  || true
 
 EXPOSE 80
+
+# Run supervisord as www-data to match file ownership
+USER www-data
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
