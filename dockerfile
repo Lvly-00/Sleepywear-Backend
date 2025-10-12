@@ -1,5 +1,5 @@
 # ----------------------------------------
-# Build stage: install Composer dependencies
+# Build stage: Composer dependencies
 # ----------------------------------------
 FROM composer:2.7 AS vendor
 
@@ -17,13 +17,13 @@ RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader \
 # ----------------------------------------
 FROM php:8.2-fpm-alpine
 
-# Install necessary packages
+# Install packages
 RUN apk add --no-cache nginx supervisor bash curl zip unzip git
 
-# Install PHP extensions
+# PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
 
-# Set working directory
+# Working directory
 WORKDIR /var/www/html
 
 # Copy Laravel app
@@ -32,24 +32,21 @@ COPY . .
 # Copy vendor from build stage
 COPY --from=vendor /app/vendor ./vendor
 
-# Ensure writable directories for Laravel
-RUN mkdir -p storage/framework/cache/data \
-    storage/framework/sessions \
-    storage/framework/views \
-    storage/logs \
-    bootstrap/cache \
-    /var/log/nginx \
-    /var/log/php-fpm \
+# Create writable directories
+RUN mkdir -p storage/framework/{cache/data,sessions,views} \
+    storage/logs bootstrap/cache \
+    /var/log/nginx /var/log/php-fpm \
     && chown -R www-data:www-data storage bootstrap/cache /var/log \
     && chmod -R 775 storage bootstrap/cache /var/log \
     && touch /var/log/nginx/error.log /var/log/nginx/access.log \
     /var/log/php-fpm/error.log /var/log/php-fpm/access.log
 
-# Copy supervisord & nginx configs
+# Copy configs
 COPY ./docker/supervisord.conf /etc/supervisord.conf
 COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY ./docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 
-# Clear and rebuild Laravel caches (ignore warnings)
+# Clear Laravel caches
 RUN php artisan config:clear \
  && php artisan cache:clear \
  && php artisan route:clear \
@@ -59,5 +56,4 @@ RUN php artisan config:clear \
 
 EXPOSE 80
 
-# Run container as root (needed for supervisord)
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
