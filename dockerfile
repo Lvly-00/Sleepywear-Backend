@@ -43,8 +43,14 @@ RUN php artisan config:clear \
  && php artisan route:cache \
  || true
 
-# Ensure writable directories
-RUN mkdir -p /run/nginx && chmod -R 775 storage bootstrap/cache
+# Ensure writable directories for Laravel
+RUN mkdir -p \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
+
 
 EXPOSE 80
 
