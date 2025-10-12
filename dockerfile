@@ -1,41 +1,32 @@
-# Use PHP with Apache
 FROM php:8.2-apache
 
-# Set working directory
-WORKDIR /var/www/html
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    libzip-dev \
+    zip
 
-# Install required extensions
-RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
-    curl \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
-
-# Enable Apache mod_rewrite for Laravel
+# Enable mod_rewrite
 RUN a2enmod rewrite
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql zip
 
-# Copy app files
-COPY . .
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Install dependencies & optimize Laravel
-RUN composer install --no-dev --optimize-autoloader && \
-    php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache
+# Copy the application code
+COPY . /var/www/html
 
-# Copy custom entrypoint
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Set the working directory
+WORKDIR /var/www/html
 
-# Expose port 80
-EXPOSE 80
+# Install composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Use custom entrypoint
-ENTRYPOINT ["entrypoint.sh"]
+# Install project dependencies
+RUN composer install
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
