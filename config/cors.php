@@ -15,32 +15,15 @@ return [
     |
     */
 
-  
-    'paths' => [
-        'api/*',
-        'sanctum/csrf-cookie',
-        'login',
-        'logout',
-        'register',
-        'forgot-password',
-        'reset-password',
-        'password-reset',
-    ],
-
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'register', 'forgot-password', 'reset-password'],
     'allowed_methods' => ['*'],
-
     'allowed_origins' => [
-        'http://localhost:5173', // local dev (Vite)
-        'https://sleepywear-frontend.onrender.com', // deployed frontend
+        'http://localhost:5173',
+        'https://sleepywear-frontend.onrender.com',
     ],
-
     'allowed_origins_patterns' => [],
-
     'allowed_headers' => ['*'],
-
     'exposed_headers' => [],
-
     'max_age' => 0,
-
     'supports_credentials' => true,
 ];
