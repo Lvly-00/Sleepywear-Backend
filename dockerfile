@@ -32,7 +32,7 @@ COPY . .
 # Copy vendor from build stage
 COPY --from=vendor /app/vendor ./vendor
 
-# Ensure writable directories with correct ownership
+# Ensure writable directories for Laravel
 RUN mkdir -p storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/views \
@@ -58,7 +58,5 @@ RUN php artisan config:clear \
 
 EXPOSE 80
 
-# Run supervisord as www-data to match file ownership
-USER www-data
-
+# Run container as root (needed for supervisord)
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
