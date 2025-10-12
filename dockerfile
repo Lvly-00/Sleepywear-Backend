@@ -38,11 +38,12 @@ RUN mkdir -p storage/framework/cache/data \
     storage/framework/views \
     storage/logs \
     bootstrap/cache \
-    /var/log \
+    /var/log/nginx \
+    /var/log/php-fpm \
     && chown -R www-data:www-data storage bootstrap/cache /var/log \
     && chmod -R 775 storage bootstrap/cache /var/log \
-    && touch /var/log/php-fpm.log /var/log/php-fpm-error.log \
-    /var/log/nginx.log /var/log/nginx-error.log
+    && touch /var/log/nginx/error.log /var/log/nginx/access.log \
+    /var/log/php-fpm/error.log /var/log/php-fpm/access.log
 
 # Copy supervisord & nginx configs
 COPY ./docker/supervisord.conf /etc/supervisord.conf
