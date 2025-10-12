@@ -1,32 +1,43 @@
-FROM php:8.2-apache
+# ----------------------------------------
+# 1️⃣ Build stage — install Composer deps
+# ----------------------------------------
+FROM composer:2.7 AS vendor
 
-# Install dependencies
-RUN apt-get update && \
-    apt-get install -y \
-    libzip-dev \
-    zip
+WORKDIR /app
 
-# Enable mod_rewrite
-RUN a2enmod rewrite
+# Copy only composer files to leverage caching
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql zip
+# ----------------------------------------
+# 2️⃣ Application stage — PHP + Nginx
+# ----------------------------------------
+FROM php:8.2-fpm-alpine
 
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Install system dependencies
+RUN apk add --no-cache nginx curl zip unzip git supervisor bash
 
-# Copy the application code
-COPY . /var/www/html
+# Install PHP extensions commonly used by Laravel
+RUN docker-php-ext-install pdo pdo_mysql
 
-# Set the working directory
+# Copy application code
 WORKDIR /var/www/html
+COPY . .
 
-# Install composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Copy vendor from the build stage
+COPY --from=vendor /app/vendor ./vendor
 
-# Install project dependencies
-RUN composer install
+# Copy default nginx config
+COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Optimize Laravel
+RUN php artisan config:clear && php artisan cache:clear && php artisan route:cache
+
+# Create necessary directories
+RUN mkdir -p /run/nginx && chmod -R 775 storage bootstrap/cache
+
+# Copy supervisor config (to run both Nginx + PHP-FPM)
+COPY ./docker/supervisord.conf /etc/supervisord.conf
+
+EXPOSE 80
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
