@@ -19,7 +19,7 @@ return [
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'http://localhost:5173',
-        'https://strong-roses-wish.loca.lt',
+        'https://sleepywear-frontend.onrender.com'
     ],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
