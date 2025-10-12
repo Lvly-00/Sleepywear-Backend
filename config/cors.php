@@ -15,11 +15,11 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'register', 'forgot-password', 'reset-password'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'password-reset', 'forgot-password'],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'http://localhost:5173',
-        'https://sleepywear-frontend.onrender.com',
+        'https://strong-roses-wish.loca.lt',
     ],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],

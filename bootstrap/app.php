@@ -28,7 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'http://localhost:5173/',
 
-            'http://example.com/foo/*',
+            'https://sleepywear-frontend.onrender.com/',
 
         ]);
 
