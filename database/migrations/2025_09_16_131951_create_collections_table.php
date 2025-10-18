@@ -19,6 +19,8 @@ return new class extends Migration
             $table->enum('status', ['Active', 'Sold Out'])->default('Active');
             $table->integer('stock_qty')->default(0);
             $table->decimal('total_sales', 12, 2)->default(0);
+            $table->decimal('capital', 12, 2)->default(0);
+
             $table->timestamps();
         });
     }

@@ -16,7 +16,9 @@ class Collection extends Model
         'qty',
         'status',
         'total_sales',
-        'stock_qty'
+        'stock_qty',
+        'capital',
+
     ];
 
     public function items()

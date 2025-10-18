@@ -23,6 +23,7 @@ class CollectionFactory extends Factory
             'status' => $this->faker->randomElement(['Active', 'Sold Out']),
             'total_sales' => $this->faker->randomFloat(2, 1000, 100000),
             'stock_qty' => $this->faker->numberBetween(10, 400),
+            'capital' => $this->faker->randomFloat(2, 500, 50000),
         ];
     }
 }

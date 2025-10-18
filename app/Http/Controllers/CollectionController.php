@@ -15,7 +15,8 @@ class CollectionController extends Controller
             $col->qty = $col->items->count();
             $col->total_sales = $col->items
                 ->where('status', 'taken')
-                ->sum('price'); // total price of sold items
+                ->sum('price');
+            $col->capital = $col->capital ?? 0;
             $col->status = $col->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
             return $col;
         });
@@ -29,9 +30,10 @@ class CollectionController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'release_date' => 'required|date',
+            'capital' => 'required|numeric|min:0',
         ]);
 
-        $collection = Collection::create($request->only('name', 'release_date'));
+        $collection = Collection::create($request->only('name', 'release_date', 'capital'));
 
         // Initialize totals
         $collection->load('items');
@@ -40,6 +42,7 @@ class CollectionController extends Controller
         $collection->total_sales = $collection->items
             ->where('status', 'taken')
             ->sum('price');
+        $collection->capital = $collection->items->sum('capital');
         $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
 
         return response()->json($collection, 201);
@@ -54,6 +57,7 @@ class CollectionController extends Controller
         $collection->total_sales = $collection->items
             ->where('status', 'taken')
             ->sum('price');
+        $collection->capital = $collection->items->sum('capital');
         $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
 
         return response()->json($collection);
@@ -62,7 +66,7 @@ class CollectionController extends Controller
     // Update a collection
     public function update(Request $request, Collection $collection)
     {
-        $collection->update($request->only('name', 'release_date'));
+        $collection->update($request->only('name', 'release_date', 'capital'));
 
         $collection->load('items');
         $collection->stock_qty = $collection->items->sum('collection_stock_qty');
@@ -70,6 +74,8 @@ class CollectionController extends Controller
         $collection->total_sales = $collection->items
             ->where('status', 'taken')
             ->sum('price');
+        $collection->capital = $collection->items->sum('capital');
+
         $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
 
         return response()->json($collection);
