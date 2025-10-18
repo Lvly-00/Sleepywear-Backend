@@ -9,6 +9,7 @@ use App\Models\Item;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -128,7 +129,31 @@ class OrderController extends Controller
     // Delete order
     public function destroy(Order $order)
     {
-        $order->delete();
-        return response()->json(['message' => 'Order deleted']);
+        try {
+            // Get all items in the order
+            $items = $order->items;
+
+            // Update each item's status to "available"
+            foreach ($items as $orderItem) {
+                $item = $orderItem->item; // Ensure relationship exists
+                if ($item) {
+                    $item->update(['status' => 'available']);
+                }
+            }
+
+            // Delete order items first
+            $order->items()->delete();
+
+            // Then delete the order
+            $order->delete();
+
+            return response()->json(['message' => 'Order deleted successfully']);
+        } catch (\Exception $e) {
+            Log::error('Order delete failed: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to delete order',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }
