@@ -12,11 +12,11 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    // Fetch all orders with their items (pending on top)
+    // Fetch all orders with their items (unpaid on top)
     public function index()
     {
         $orders = Order::with('items')
-            ->orderByRaw("CASE WHEN payment_status = 'pending' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN payment_status = 'unpaid' THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -54,7 +54,7 @@ class OrderController extends Controller
                         'contact_number' => $orderData['contact_number'],
                         'social_handle' => $orderData['social_handle'],
                         'invoice_id' => $invoice->id,
-                        'payment_status' => 'pending',
+                        'payment_status' => 'unpaid',
                         'total' => 0,
                     ]);
 
