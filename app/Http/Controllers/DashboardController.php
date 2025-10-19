@@ -2,55 +2,63 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Order;
-use App\Models\Invoice;
-use App\Models\OrderItem;
 use App\Models\Collection;
+use App\Models\OrderItem;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-     public function summary()
+    public function summary()
     {
-        $totalSales = Order::sum('total');
+        // Total gross income = sum of paid invoices
+        $grossIncome = Order::where('payment_status', 'paid')->sum('total_paid');
+
+        // Total capital from collections
+        $totalCapital = Collection::sum('capital');
+
+        $netIncome = $grossIncome - $totalCapital;
+
         $totalItemsSold = OrderItem::sum('quantity');
+        $totalInvoices = Order::count();
         $totalCollections = Collection::count();
-        $totalInvoices = Invoice::count();
 
-        // Collection sales per month (SQLite compatible)
-        $collectionSales = OrderItem::select(
-            DB::raw("strftime('%m', created_at) as month"),
-            DB::raw("SUM(price * quantity) as total")
-        )
-            ->groupBy(DB::raw("strftime('%m', created_at)"))
-            ->orderBy("month")
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'month' => Carbon::create()->month((int)$item->month)->format('M'),
-                    'total' => $item->total,
-                ];
-            });
+        // Daily sales per collection
+        $collectionSales = Collection::with(['items' => function($query) {
+            $query->select('id', 'collection_id');
+        }])->get()->map(function ($collection) {
+            // Sum sales per day for this collection
+            $dailySales = OrderItem::whereIn('item_id', $collection->items->pluck('id'))
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->where('orders.payment_status', 'paid')
+                ->select(
+                    DB::raw("DATE(orders.order_date) as day"),
+                    DB::raw("SUM(order_items.price * order_items.quantity) as total")
+                )
+                ->groupBy('day')
+                ->orderBy('day')
+                ->get();
 
-        // Sales comparison (SQLite compatible)
-        $thisMonth = OrderItem::whereRaw("strftime('%m', created_at) = ?", [now()->format('m')])
-            ->sum(DB::raw('price * quantity'));
-
-        $lastMonth = OrderItem::whereRaw("strftime('%m', created_at) = ?", [now()->subMonth()->format('m')])
-            ->sum(DB::raw('price * quantity'));
+            return [
+                'collection_name' => $collection->name,
+                'dailySales' => $dailySales->map(function ($sale) {
+                    return [
+                        'date' => Carbon::parse($sale->day)->format('Y-m-d'),
+                        'total' => round($sale->total),
+                    ];
+                }),
+            ];
+        });
 
         return response()->json([
-            'totalSales' => $totalSales,
+            'grossIncome' => $grossIncome,
+            'netIncome' => $netIncome,
             'totalItemsSold' => $totalItemsSold,
             'totalCollections' => $totalCollections,
             'totalInvoices' => $totalInvoices,
             'collectionSales' => $collectionSales,
-            'salesComparison' => [
-                'lastMonth' => $lastMonth,
-                'thisMonth' => $thisMonth,
-            ],
         ]);
     }
 }

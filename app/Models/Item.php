@@ -17,7 +17,6 @@ class Item extends Model
         'image',
         'price',
         'status',
-        'notes',
         'collection_stock_qty',
         'collection_id',
     ];

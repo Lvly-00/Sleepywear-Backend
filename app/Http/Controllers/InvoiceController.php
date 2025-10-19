@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Order;
+
 
 class InvoiceController extends Controller
 {
@@ -19,7 +21,10 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice)
     {
-        $invoice->load('orders.items.customers', 'orders');
+        $invoice->load([
+            'orders.items.item',
+            'orders'
+        ]);
         return response()->json($invoice);
     }
 
@@ -41,10 +46,7 @@ class InvoiceController extends Controller
         ], 201);
     }
 
-    /**
-     * ✅ Update invoice total and status dynamically
-     * Adds additional_fee only when all orders are paid.
-     */
+
     public function updateInvoiceStatus($invoiceId)
     {
         $invoice = Invoice::with(['orders.items'])->findOrFail($invoiceId);
@@ -72,12 +74,15 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function destroy(Invoice $invoice)
+    public function destroyInvoice($invoiceId)
     {
+        $invoice = Invoice::with('orders.items')->findOrFail($invoiceId);
+
         DB::beginTransaction();
         try {
             foreach ($invoice->orders as $order) {
                 foreach ($order->items as $item) {
+                    // If you have related customers or other relations
                     $item->customers()->delete();
                 }
                 $order->delete();
@@ -93,6 +98,37 @@ class InvoiceController extends Controller
                 'error' => 'Failed to delete invoice',
                 'details' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    public function destroyOrder($orderId)
+    {
+        $order = Order::with('items', 'invoice')->findOrFail($orderId);
+
+        DB::beginTransaction();
+        try {
+            foreach ($order->items as $item) {
+                $item->customers()->delete(); // optional
+            }
+
+            $invoice = $order->invoice;
+
+            $order->delete();
+
+            // Recalculate invoice total
+            if ($invoice) {
+                $remainingTotal = $invoice->orders()->sum('total_paid');
+                $invoice->update([
+                    'total' => $remainingTotal,
+                    'status' => $remainingTotal > 0 ? 'paid' : 'draft', // optional
+                ]);
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Order deleted and invoice updated successfully']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 }

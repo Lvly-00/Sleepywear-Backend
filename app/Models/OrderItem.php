@@ -16,6 +16,12 @@ class OrderItem extends Model
         'quantity',
         'status',
     ];
+    protected $appends = ['item_code'];
+
+    public function getItemCodeAttribute()
+    {
+        return $this->item?->code;
+    }
 
     public function order(): BelongsTo
     {
