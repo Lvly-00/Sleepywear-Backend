@@ -14,8 +14,7 @@ class OrderItem extends Model
         'item_name',
         'price',
         'quantity',
-        'notes',
-        'status'
+        'status',
     ];
 
     public function order(): BelongsTo
@@ -25,7 +24,7 @@ class OrderItem extends Model
 
     public function item(): BelongsTo
     {
-        return $this->belongsTo(Item::class); 
+        return $this->belongsTo(Item::class);
     }
 
     public function customers(): HasMany

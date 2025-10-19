@@ -37,6 +37,11 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function orderItems()
+    {
+        return $this->items();
+    }
+
     // Single latest payment relation
     public function payment()
     {

@@ -11,12 +11,11 @@ class Invoice extends Model
 {
     protected $fillable = [
         'invoice_ref',
-        'issue_date',
         'sent_date',
         'customer_name',
         'status',
-        'notes',
-        'total'
+        'total',
+        'additional_fee',
     ];
 
     public function orders(): HasMany
