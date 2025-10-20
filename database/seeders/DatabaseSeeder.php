@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory(10)->create();
+        // User::factory(10)->create();
 
         User::factory()->create([
             'name' => 'SleepyWear',
@@ -23,14 +23,14 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('password'),
         ]);
 
-        Collection::factory()
-            ->count(5)
-            ->create()
-            ->each(function ($collection) {
-                Item::factory()
-                    ->count(10)
-                    ->for($collection) // link items to this collection
-                    ->create();
-            });
+        // Collection::factory()
+        //     ->count(5)
+        //     ->create()
+        //     ->each(function ($collection) {
+        //         Item::factory()
+        //             ->count(10)
+        //             ->for($collection) // link items to this collection
+        //             ->create();
+        //     });
     }
 }
