@@ -15,15 +15,28 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'password-reset', 'forgot-password'],
-    'allowed_methods' => ['*'],
-    'allowed_origins' => [
-        'http://localhost:5173',
-        'https://sleepywear-frontend.onrender.com'
+    'paths' => [
+        'api/*',
+        'sanctum/csrf-cookie',
+        'login',
+        'logout',
+        'register',
+        'forgot-password',
+        'password-reset',
     ],
+
+    'allowed_methods' => ['*'],
+
+    // Dynamically use .env for multiple frontends
+    'allowed_origins' => explode(',', env('FRONTEND_URLS', 'http://localhost:5173')),
+
     'allowed_origins_patterns' => [],
+
     'allowed_headers' => ['*'],
+
     'exposed_headers' => [],
+
     'max_age' => 0,
+
     'supports_credentials' => true,
 ];
