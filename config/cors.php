@@ -17,7 +17,6 @@ return [
 
     'paths' => [
         'api/*',
-        'sanctum/csrf-cookie',
         'login',
         'logout',
         'register',
@@ -27,7 +26,6 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // Dynamically use .env for multiple frontends
     'allowed_origins' => explode(',', env('FRONTEND_URLS', 'http://localhost:5173')),
 
     'allowed_origins_patterns' => [],
@@ -38,5 +36,5 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    'supports_credentials' => false, // important for token-based auth
 ];

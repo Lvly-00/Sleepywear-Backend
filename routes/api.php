@@ -17,6 +17,9 @@ use App\Http\Controllers\AuthController;
 | Public Routes (No Auth)
 |--------------------------------------------------------------------------
 */
+Route::options('{any}', function () {
+    return response()->json([], 200);
+})->where('any', '.*');
 
 // Authentication routes
 Route::post('/login', [AuthController::class, 'login']);
