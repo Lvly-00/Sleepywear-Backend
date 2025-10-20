@@ -33,7 +33,7 @@ php artisan storage:link || true
 echo "Running migrations and seeding admin account..."
 php artisan migrate:fresh --force
 
-php artisan db:seed --class=AdminSeeder --force
+php artisan db:seed --class=DatabaseSeeder --force
 
 # Start Laravel development server on the correct port
 echo "Starting Laravel server on 0.0.0.0:$PORT..."
