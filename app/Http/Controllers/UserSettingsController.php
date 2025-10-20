@@ -11,18 +11,20 @@ class UserSettingsController extends Controller
 {
 
     public function show(Request $request)
-    {
-        $user = $request->user();
+{
+    Log::info('Authenticated user:', ['user' => $request->user()]);
+    $user = $request->user();
 
-        if (!$user) {
-            return response()->json(['message' => 'User not authenticated'], 401);
-        }
-
-        return response()->json([
-            'business_name' => $user->business_name ?? '',
-            'email' => $user->email ?? '',
-        ]);
+    if (!$user) {
+        return response()->json(['message' => 'User not authenticated'], 401);
     }
+
+    return response()->json([
+        'business_name' => $user->business_name ?? '',
+        'email' => $user->email ?? '',
+    ]);
+}
+
 
     public function updateProfile(Request $request)
     {

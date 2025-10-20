@@ -17,9 +17,7 @@ use App\Http\Controllers\AuthController;
 | Public Routes (No Auth)
 |--------------------------------------------------------------------------
 */
-Route::options('{any}', function () {
-    return response()->json([], 200);
-})->where('any', '.*');
+
 
 // Authentication routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -31,7 +29,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 | Protected Routes (Require Bearer Token)
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
     // API resources for CRUD operations
     Route::apiResource('collections', CollectionController::class);
     Route::apiResource('items', ItemController::class);
@@ -46,8 +43,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
     Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
 
+   Route::middleware('auth:sanctum')->group(function () {
     // User settings
     Route::get('/user/settings', [UserSettingsController::class, 'show']);
     Route::put('/user/settings', [UserSettingsController::class, 'updateProfile']);
     Route::put('/user/settings/password', [UserSettingsController::class, 'updatePassword']);
 });
+
