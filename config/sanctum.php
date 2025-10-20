@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,localhost:5173,https://sleepywear-frontend.onrender.com')),
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,localhost:5173,sleepywear-frontend.onrender.com')),
 
 
     /*
