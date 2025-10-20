@@ -2,8 +2,11 @@
 set -e
 
 # ------------------------------
-# Laravel container startup script
+# Laravel container startup script (Render-ready)
 # ------------------------------
+
+# Use PORT from environment, default to 8000
+PORT=${PORT:-8000}
 
 # Ensure SQLite database file exists
 DB_PATH="database/database.sqlite"
@@ -14,22 +17,22 @@ if [ ! -f "$DB_PATH" ]; then
     chmod 777 "$DB_PATH"
 fi
 
-# Optimize Composer autoload
-echo "Running composer install..."
+# Install composer dependencies and optimize autoloader
+echo "Installing composer dependencies..."
 composer install --no-dev --optimize-autoloader
 
-# Clear all caches to prevent factory / faker issues
+# Clear all Laravel caches to avoid factory/faker issues
 echo "Clearing Laravel caches..."
 php artisan optimize:clear
 
-# Run storage link (skip if already exists)
+# Create storage symbolic link if not exists
 echo "Running storage link..."
 php artisan storage:link || true
 
-# Run migrations and seeders fresh
-echo "Running migrations and database seeding..."
+# Run migrations and seed database
+echo "Running migrations and seeding database..."
 php artisan migrate:fresh --force --seed
 
-# Start Laravel development server
-echo "Starting Laravel server on port 8000..."
-exec php artisan serve --host=0.0.0.0 --port=8000
+# Start Laravel development server on the correct port
+echo "Starting Laravel server on 0.0.0.0:$PORT..."
+exec php artisan serve --host=0.0.0.0 --port=$PORT
