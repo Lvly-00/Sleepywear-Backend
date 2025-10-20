@@ -10,11 +10,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class ItemFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
@@ -24,7 +19,7 @@ class ItemFactory extends Factory
             'price' => $this->faker->randomFloat(2, 10, 500),
             'notes' => $this->faker->sentence(),
             'collection_stock_qty' => $this->faker->numberBetween(1, 100),
-            'collection_id' => Collection::factory(), // will create a new collection if not specified
+            'collection_id' => Collection::factory(),
             'status' => $this->faker->randomElement(['available', 'taken']),
         ];
     }
