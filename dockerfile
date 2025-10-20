@@ -1,22 +1,38 @@
-FROM richarvey/nginx-php-fpm:latest
+# Use official PHP image with FPM
+FROM php:8.2-fpm
 
-# Copy project files
-COPY . .
+WORKDIR /var/www
 
-# Image config (fixed key=value format)
-ENV SKIP_COMPOSER=1
-ENV WEBROOT=/var/www/html/public
-ENV PHP_ERRORS_STDERR=1
-ENV RUN_SCRIPTS=1
-ENV REAL_IP_HEADER=1
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    nano \
+    libzip-dev \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Laravel config
-ENV APP_ENV=production
-ENV APP_DEBUG=false
-ENV LOG_CHANNEL=stderr
+# Install Composer
+COPY --from=composer:2.5 /usr/bin/composer /usr/bin/composer
 
-# Allow composer to run as root
-ENV COMPOSER_ALLOW_SUPERUSER=1
+# Copy application files
+COPY . /var/www
 
-# Start script
-CMD ["/start.sh"]
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www \
+    && chmod -R 755 /var/www
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 8000
+ENTRYPOINT ["docker-entrypoint.sh"]
