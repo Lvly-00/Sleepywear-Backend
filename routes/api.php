@@ -10,18 +10,32 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\UserSettingsController;
+use App\Http\Controllers\AuthController;
 
-require __DIR__ . '/auth.php';
+/*
+|--------------------------------------------------------------------------
+| Public Routes (No Auth)
+|--------------------------------------------------------------------------
+*/
 
+// Authentication routes
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
+/*
+|--------------------------------------------------------------------------
+| Protected Routes (Require Bearer Token)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->group(function () {
-    // API resources for CRUD
+    // API resources for CRUD operations
     Route::apiResource('collections', CollectionController::class);
     Route::apiResource('items', ItemController::class);
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('invoices', InvoiceController::class);
     Route::apiResource('order-items', OrderItemController::class);
     Route::apiResource('customers', CustomerController::class);
-
 
     // Custom routes
     Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
