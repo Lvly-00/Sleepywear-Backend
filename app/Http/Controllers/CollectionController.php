@@ -23,29 +23,29 @@ class CollectionController extends Controller
         return response()->json($collections);
     }
 
-  public function store(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'release_date' => 'required|date',
-        'capital' => 'required|numeric|min:0',
-    ]);
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'release_date' => 'required|date',
+            'capital' => 'required|numeric|min:0',
+        ]);
 
-    $collection = Collection::create($request->only('name', 'release_date', 'capital'));
+        $collection = Collection::create($request->only('name', 'release_date', 'capital'));
 
-    $collection->load('items');
-    $collection->stock_qty = $collection->items->sum('collection_stock_qty');
-    $collection->qty = $collection->items->count();
-    $collection->total_sales = $collection->items
-        ->where('status', 'taken')
-        ->sum('price');
+        $collection->load('items');
+        $collection->stock_qty = $collection->items->sum('collection_stock_qty');
+        $collection->qty = $collection->items->count();
+        $collection->total_sales = $collection->items
+            ->where('status', 'taken')
+            ->sum('price');
 
 
 
-    $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
+        $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
 
-    return response()->json($collection, 201);
-}
+        return response()->json($collection, 201);
+    }
 
 
     public function show(Collection $collection)
