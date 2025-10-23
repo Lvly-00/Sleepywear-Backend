@@ -24,16 +24,16 @@ class DatabaseSeeder extends Seeder
 
         // Additional accounts
         $users = [
-            ['name' => 'Toyota', 'email' => 'ruthmayreginos2786@gmail.com'],
-            ['name' => 'Samsung ', 'email' => 'sofiaisabellatina@gmail.com'],
-            ['name' => 'Apple', 'email' => 'kirkbondoc31@gmail.com'],
-            ['name' => 'Google', 'email' => 'myriahvielle619@gmail.com'],
+            ['name' => 'ToyotaZ', 'business_name' => 'Toyota', 'email' => 'ruthmayreginos2786@gmail.com'],
+            ['name' => 'SamsungZ ','business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
+            ['name' => 'AppleZZ', 'business_name' => 'Apple', 'email' => 'kirkbondoc31@gmail.com'],
+            ['name' => 'GoogleZ', 'business_name' => 'Toyota', 'email' => 'myriahvielle619@gmail.com'],
         ];
 
         foreach ($users as $user) {
             User::create([
                 'name' => $user['name'],
-                'business_name' => null,
+                'business_name' => $user['business_name'],
                 'email' => $user['email'],
                 'password' => bcrypt('password'),
             ]);
