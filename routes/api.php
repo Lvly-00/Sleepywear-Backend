@@ -14,14 +14,16 @@ use App\Http\Controllers\AuthController;
 
 /*
 |--------------------------------------------------------------------------
-| Public Routes (No Auth)
+| Public Routes (No Auth Required)
 |--------------------------------------------------------------------------
 */
 
-
-// Authentication routes
+// Authentication
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+// Public logout route (for now we’ll protect it below)
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 /*
@@ -29,24 +31,28 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 | Protected Routes (Require Bearer Token)
 |--------------------------------------------------------------------------
 */
-    // API resources for CRUD operations
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Collections & Items
     Route::apiResource('collections', CollectionController::class);
     Route::apiResource('items', ItemController::class);
+    Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
+
+    // Orders, Payments & Invoices
     Route::apiResource('orders', OrderController::class);
-    Route::apiResource('invoices', InvoiceController::class);
     Route::apiResource('order-items', OrderItemController::class);
+    Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
+    Route::apiResource('invoices', InvoiceController::class);
+    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
+
+    // Customers
     Route::apiResource('customers', CustomerController::class);
 
-    // Custom routes
-    Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
-    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
-    Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
+    // Dashboard Summary
     Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
 
-   Route::middleware('auth:sanctum')->group(function () {
-    // User settings
+    // User Settings
     Route::get('/user/settings', [UserSettingsController::class, 'show']);
     Route::put('/user/settings', [UserSettingsController::class, 'updateProfile']);
     Route::put('/user/settings/password', [UserSettingsController::class, 'updatePassword']);
 });
-

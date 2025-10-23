@@ -64,4 +64,32 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Unable to send reset link'], 500);
     }
+
+      public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                // Optional: automatically revoke all tokens after password reset
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password has been reset successfully.']);
+        }
+
+        return response()->json(['message' => __($status)], 500);
+    }
+
 }
