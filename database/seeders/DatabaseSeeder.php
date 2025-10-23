@@ -40,16 +40,16 @@ class DatabaseSeeder extends Seeder
         }
 
         // Uncomment if you want to seed collections and items later
-        /*
+
         Collection::factory()
-            ->count(5)
+            ->count(30)
             ->create()
             ->each(function ($collection) {
                 Item::factory()
-                    ->count(10)
+                    ->count(70)
                     ->for($collection)
                     ->create();
             });
-        */
+
     }
 }
