@@ -41,15 +41,15 @@ class DatabaseSeeder extends Seeder
 
         // Uncomment if you want to seed collections and items later
 
-        Collection::factory()
-            ->count(30)
-            ->create()
-            ->each(function ($collection) {
-                Item::factory()
-                    ->count(70)
-                    ->for($collection)
-                    ->create();
-            });
+        // Collection::factory()
+        //     ->count(30)
+        //     ->create()
+        //     ->each(function ($collection) {
+        //         Item::factory()
+        //             ->count(70)
+        //             ->for($collection)
+        //             ->create();
+        //     });
 
     }
 }
