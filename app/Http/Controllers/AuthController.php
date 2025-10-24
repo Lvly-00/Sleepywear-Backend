@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use App\Notifications\ResetPasswordNotification;
 
 class AuthController extends Controller
 {
@@ -56,22 +57,37 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        $status = Password::sendResetLink($request->only('email'));
+        $user = User::where('email', $request->email)->first();
 
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json(['message' => 'Password reset link sent']);
+        if (!$user) {
+            return response()->json(['message' => 'We can\'t find a user with that email.'], 404);
         }
 
-        return response()->json(['message' => 'Unable to send reset link'], 500);
+        // Generate reset token
+        $token = Password::createToken($user);
+
+        // Send email using custom notification pointing to frontend
+        $user->notify(new ResetPasswordNotification($token));
+
+        return response()->json(['message' => 'Password reset link sent']);
     }
 
-      public function resetPassword(Request $request)
+    /**
+     * Reset password using token
+     */
+    public function resetPassword(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
             'token' => 'required',
             'password' => 'required|min:8|confirmed',
         ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Invalid email address'], 404);
+        }
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
@@ -80,7 +96,7 @@ class AuthController extends Controller
                     'password' => Hash::make($password),
                 ])->save();
 
-                // Optional: automatically revoke all tokens after password reset
+                // Revoke all existing tokens
                 $user->tokens()->delete();
             }
         );
@@ -89,7 +105,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Password has been reset successfully.']);
         }
 
-        return response()->json(['message' => __($status)], 500);
+        return response()->json(['message' => 'Invalid token or expired link'], 400);
     }
-
 }
