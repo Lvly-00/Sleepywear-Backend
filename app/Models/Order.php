@@ -28,10 +28,11 @@ class Order extends Model
     }
 
 
-    public function invoice()
-    {
-        return $this->hasOne(Invoice::class);
-    }
+   public function invoice()
+{
+    return $this->hasOne(Invoice::class);
+}
+
 
     public function items()
     {

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('item_name');
             $table->integer('price');
             $table->integer('quantity')->default(1);
-            $table->enum('status', ['Pending', 'Sold'])->default('Pending');
+            $table->enum('status', ['Pending', 'Sold Out'])->default('Pending');
             $table->timestamps();
         });
     }

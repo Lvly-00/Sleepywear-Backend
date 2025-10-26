@@ -3,16 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\Order;
-
 
 class InvoiceController extends Controller
 {
     public function index()
     {
-        $invoices = Invoice::with('orders.items')
+        $invoices = Invoice::with('order.items')
             ->orderBy('created_at', 'desc')
             ->paginate(25);
 
@@ -22,18 +21,17 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $invoice->load([
-            'orders.items.item',
-            'orders'
+            'order.items'
         ]);
+
         return response()->json($invoice);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'invoice_ref' => 'required|string|unique:invoices,invoice_ref',
-            'customer_name' => 'nullable|string',
-            'status' => 'in:draft,paid',
+            'order_id' => 'required|exists:orders,id',
+            'status' => 'in:Draft,Paid',
             'total' => 'numeric|min:0',
             'additional_fee' => 'nullable|numeric|min:0',
         ]);
@@ -46,52 +44,48 @@ class InvoiceController extends Controller
         ], 201);
     }
 
-
     public function updateInvoiceStatus($invoiceId)
     {
-        $invoice = Invoice::with(['orders.items'])->findOrFail($invoiceId);
+        $invoice = Invoice::with('order')->findOrFail($invoiceId);
+        $order = $invoice->order;
 
-        // Check if all orders are paid
-        $allPaid = $invoice->orders->every(fn($order) => $order->payment_status === 'paid');
+        if (!$order) {
+            throw new \Exception('No order linked to this invoice.');
+        }
 
-        // Sum total paid from all orders
-        $orderTotal = $invoice->orders->sum('total_paid');
+        $isPaid = $order->payment_status === 'Paid';
+        $totalPaid = $order->total_paid ?? 0;
+        $grandTotal = $order->total + ($invoice->additional_fee ?? 0);
 
-        // Include additional fee only if all orders are paid
-        $grandTotal = $allPaid
-            ? $orderTotal + ($invoice->additional_fee ?? 0)
-            : $orderTotal;
-
-        // Update invoice
         $invoice->update([
-            'status' => $allPaid ? 'paid' : 'draft',
+            'status' => $isPaid ? 'Paid' : 'Draft',
             'total' => $grandTotal,
         ]);
 
         return response()->json([
             'message' => 'Invoice status and total updated successfully',
-            'invoice' => $invoice->fresh('orders.items'),
+            'invoice' => $invoice->fresh('order.items'),
         ]);
     }
 
     public function destroyInvoice($invoiceId)
     {
-        $invoice = Invoice::with('orders.items')->findOrFail($invoiceId);
+        $invoice = Invoice::with('order.items')->findOrFail($invoiceId);
 
         DB::beginTransaction();
         try {
-            foreach ($invoice->orders as $order) {
+            $order = $invoice->order;
+            if ($order) {
                 foreach ($order->items as $item) {
-                    // If you have related customers or other relations
-                    $item->customers()->delete();
+                    $item->update(['status' => 'Available']);
                 }
                 $order->delete();
             }
 
             $invoice->delete();
-            DB::commit();
 
-            return response()->json(['message' => 'Invoice and associated orders deleted successfully']);
+            DB::commit();
+            return response()->json(['message' => 'Invoice and linked order deleted successfully']);
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
@@ -108,19 +102,16 @@ class InvoiceController extends Controller
         DB::beginTransaction();
         try {
             foreach ($order->items as $item) {
-                $item->customers()->delete(); // optional
+                $item->update(['status' => 'Available']);
             }
 
             $invoice = $order->invoice;
-
             $order->delete();
 
-            // Recalculate invoice total
             if ($invoice) {
-                $remainingTotal = $invoice->orders()->sum('total_paid');
                 $invoice->update([
-                    'total' => $remainingTotal,
-                    'status' => $remainingTotal > 0 ? 'paid' : 'draft', // optional
+                    'status' => 'Draft',
+                    'total' => 0
                 ]);
             }
 
