@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('image')->nullable();
             $table->integer('price');
-            $table->enum('status', ['Available', 'Sold'])->default('Available');
+            $table->enum('status', ['Available', 'Sold Out'])->default('Available');
             $table->timestamps();
         });
     }

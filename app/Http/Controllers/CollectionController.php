@@ -7,16 +7,34 @@ use Illuminate\Http\Request;
 
 class CollectionController extends Controller
 {
+
+    private function ordinal($number)
+    {
+        $suffix = 'th';
+        if (!in_array(($number % 100), [11,12,13])) {
+            switch ($number % 10) {
+                case 1: $suffix = 'st'; break;
+                case 2: $suffix = 'nd'; break;
+                case 3: $suffix = 'rd'; break;
+            }
+        }
+        return $number . $suffix . ' Collection';
+    }
+
     public function index()
     {
         $collections = Collection::with('items')->get()->map(function ($col) {
-            $col->stock_qty = $col->items->sum('collection_stock_qty');
+            if (is_numeric($col->name)) {
+                $col->name = $this->ordinal($col->name);
+            }
+
+            $col->stock_qty = $col->sum('stock_qty');
             $col->qty = $col->items->count();
             $col->total_sales = $col->items
-                ->where('status', 'taken')
+                ->where('status', 'Sold Out')
                 ->sum('price');
             $col->capital = $col->capital ?? 0;
-            $col->status = $col->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
+            $col->status = $col->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
             return $col;
         });
 
@@ -37,12 +55,14 @@ class CollectionController extends Controller
         $collection->stock_qty = $collection->items->sum('collection_stock_qty');
         $collection->qty = $collection->items->count();
         $collection->total_sales = $collection->items
-            ->where('status', 'taken')
+            ->where('status', 'Sold Out')
             ->sum('price');
+        $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
 
-
-
-        $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
+        // Convert numeric name to ordinal
+        if (is_numeric($collection->name)) {
+            $collection->name = $this->ordinal($collection->name);
+        }
 
         return response()->json($collection, 201);
     }
@@ -51,18 +71,23 @@ class CollectionController extends Controller
     public function show(Collection $collection)
     {
         $collection->load('items');
-        $collection->stock_qty = $collection->items->sum('collection_stock_qty');
+        $collection->stock_qty = $collection->sum('stock_qty');
         $collection->qty = $collection->items->count();
         $collection->total_sales = $collection->items
-            ->where('status', 'taken')
+            ->where('status', 'Sold Out')
             ->sum('price');
         $collection->capital = $collection->items->sum('capital');
-        $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
+        $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+
+        if (is_numeric($collection->name)) {
+            $collection->name = $this->ordinal($collection->name);
+        }
 
         return response()->json($collection);
     }
 
-    public function update(Request $request, Collection $collection)
+
+       public function update(Request $request, Collection $collection)
     {
         $request->validate([
             'name' => 'required|string|max:255',
@@ -73,12 +98,16 @@ class CollectionController extends Controller
         $collection->update($request->only('name', 'release_date', 'capital'));
 
         $collection->load('items');
-        $collection->stock_qty = $collection->items->sum('collection_stock_qty');
+        $collection->stock_qty = $collection->sum('stock_qty');
         $collection->qty = $collection->items->count();
         $collection->total_sales = $collection->items
-            ->where('status', 'taken')
+            ->where('status', 'Sold Out')
             ->sum('price');
-        $collection->status = $collection->items->where('status', 'available')->count() > 0 ? 'Active' : 'Sold Out';
+        $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+
+        if (is_numeric($collection->name)) {
+            $collection->name = $this->ordinal($collection->name);
+        }
 
         return response()->json($collection);
     }
