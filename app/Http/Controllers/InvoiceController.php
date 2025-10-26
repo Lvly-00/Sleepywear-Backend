@@ -9,21 +9,9 @@ use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
 {
-    public function index()
-    {
-        $invoices = Invoice::with('order.items')
-            ->orderBy('created_at', 'desc')
-            ->paginate(25);
-
-        return response()->json($invoices);
-    }
-
     public function show(Invoice $invoice)
     {
-        $invoice->load([
-            'order.items'
-        ]);
-
+        $invoice->load(['order.items']);
         return response()->json($invoice);
     }
 
@@ -36,7 +24,16 @@ class InvoiceController extends Controller
             'additional_fee' => 'nullable|numeric|min:0',
         ]);
 
-        $invoice = Invoice::create($data);
+        $order = Order::findOrFail($data['order_id']);
+        $additionalFee = $data['additional_fee'] ?? 0;
+        $grandTotal = $order->total + $additionalFee;
+
+        $invoice = Invoice::create([
+            'order_id' => $order->id,
+            'status' => $data['status'] ?? 'Draft',
+            'total' => $grandTotal,
+            'additional_fee' => $additionalFee,
+        ]);
 
         return response()->json([
             'message' => 'Invoice created successfully',
@@ -46,25 +43,27 @@ class InvoiceController extends Controller
 
     public function updateInvoiceStatus($invoiceId)
     {
-        $invoice = Invoice::with('order')->findOrFail($invoiceId);
+        $invoice = Invoice::with('order.payment')->findOrFail($invoiceId);
         $order = $invoice->order;
 
         if (!$order) {
             throw new \Exception('No order linked to this invoice.');
         }
 
-        $isPaid = $order->payment_status === 'Paid';
-        $totalPaid = $order->total_paid ?? 0;
-        $grandTotal = $order->total + ($invoice->additional_fee ?? 0);
+        $payment = $order->payment;
+        $isPaid = $payment?->payment_status === 'Paid';
+        $additionalFee = $order->payment?->additional_fee ?? 0;
+        $grandTotal = $order->total + $additionalFee;
 
-        $invoice->update([
-            'status' => $isPaid ? 'Paid' : 'Draft',
-            'total' => $grandTotal,
-        ]);
+       $invoice->update([
+        'status' => $isPaid ? 'Paid' : 'Draft',
+        'total' => $order->total + $additionalFee,
+        'additional_fee' => $additionalFee,
+    ]);
 
         return response()->json([
-            'message' => 'Invoice status and total updated successfully',
-            'invoice' => $invoice->fresh('order.items'),
+            'message' => 'Invoice status, total, and additional fee updated successfully',
+            'invoice' => $invoice->fresh('order.items', 'order.payment'),
         ]);
     }
 
@@ -111,7 +110,8 @@ class InvoiceController extends Controller
             if ($invoice) {
                 $invoice->update([
                     'status' => 'Draft',
-                    'total' => 0
+                    'total' => 0,
+                    'additional_fee' => 0,
                 ]);
             }
 

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Invoice;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -19,24 +18,19 @@ class Order extends Model
         'social_handle',
         'order_date',
         'total',
-
+        'dashboard_updated', // newly added
+        'previous_amount',   // newly added
     ];
 
-      public function customer()
+    // Relations
+    public function customer()
     {
         return $this->belongsTo(Customer::class);
     }
 
-
-   public function invoice()
-{
-    return $this->hasOne(Invoice::class);
-}
-
-
-    public function items()
+    public function invoice()
     {
-        return $this->hasMany(OrderItem::class);
+        return $this->hasOne(Invoice::class);
     }
 
     public function orderItems()
@@ -44,9 +38,25 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    // Single latest payment relation
+    // Alias for orderItems (optional)
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    // Single latest payment
     public function payment()
     {
         return $this->hasOne(Payment::class);
+    }
+
+    // Calculate total capital for the order
+    public function totalCapital()
+    {
+        return $this->orderItems->sum(function ($orderItem) {
+            return $orderItem->item && $orderItem->item->collection
+                ? $orderItem->item->collection->capital * $orderItem->quantity
+                : 0;
+        });
     }
 }
