@@ -12,27 +12,29 @@ class Item extends Model
     use HasFactory;
 
     protected $fillable = [
+        'collection_id',
         'code',
         'name',
         'image',
         'price',
         'status',
-        'collection_stock_qty',
-        'collection_id',
     ];
 
 
-    protected $appends = ['image_url'];
+      protected $appends = ['image_url'];
 
     public function getImageUrlAttribute()
     {
-        return $this->image
-            ? asset('storage/' . $this->image)
-            : null;
+        return $this->image ? asset('storage/' . $this->image) : null;
     }
 
     public function collection()
     {
         return $this->belongsTo(Collection::class);
+    }
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
     }
 }

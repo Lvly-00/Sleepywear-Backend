@@ -10,26 +10,25 @@ use Illuminate\Support\Str;
 class Invoice extends Model
 {
     protected $fillable = [
-        'invoice_ref',
-        'sent_date',
-        'customer_name',
+        'order_id',
         'status',
         'total',
         'additional_fee',
     ];
 
-    public function orders(): HasMany
+     public function order()
     {
-        return $this->hasMany(Order::class);
+        return $this->belongsTo(Order::class);
     }
-    protected static function boot()
-    {
-        parent::boot();
 
-        static::creating(function ($invoice) {
-            if (empty($invoice->invoice_ref)) {
-                $invoice->invoice_ref = 'INV-' . strtoupper(Str::random(8));
-            }
-        });
-    }
+    // protected static function boot()
+    // {
+    //     parent::boot();
+
+    //     static::creating(function ($invoice) {
+    //         if (empty($invoice->invoice_ref)) {
+    //             $invoice->invoice_ref = 'INV-' . strtoupper(Str::random(8));
+    //         }
+    //     });
+    // }
 }

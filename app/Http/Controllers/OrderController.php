@@ -144,6 +144,10 @@ class OrderController extends Controller
             // Delete order items first
             $order->items()->delete();
 
+            if ($order->invoice) {
+            $order->invoice->delete();
+        }
+
             // Then delete the order
             $order->delete();
 

@@ -13,4 +13,9 @@ class Customer extends Model
         'contact_number',
         'social_handle'
     ];
+
+     public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }

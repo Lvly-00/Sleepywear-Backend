@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->string('first_name');
             $table->string('last_name');
-            $table->text('address')->nullable();
-            $table->string('contact_number')->nullable();
-            $table->string('social_handle')->nullable();
+            $table->text('address')();
+            $table->string('contact_number')();
+            $table->string('social_handle')();
             $table->timestamps();
         });
     }

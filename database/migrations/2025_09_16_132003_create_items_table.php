@@ -13,14 +13,12 @@ return new class extends Migration
     {
         Schema::create('items', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('collection_id')->constrained()->cascadeOnDelete();
             $table->string('code')->unique();
             $table->string('name');
             $table->string('image')->nullable();
-            $table->decimal('price', 10, 2);
-            $table->enum('status', ['available', 'taken'])->default('available');
-            $table->text('notes')->nullable();
-            $table->integer('collection_stock_qty')->default(0);
-            $table->foreignId('collection_id')->constrained()->cascadeOnDelete();
+            $table->integer('price');
+            $table->enum('status', ['Available', 'Sold'])->default('Available');
             $table->timestamps();
         });
     }

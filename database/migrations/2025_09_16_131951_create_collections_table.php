@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('collections', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->date('release_date');
+            $table->date('release_date')->nullable();
             $table->integer('qty')->default(0);
-            $table->enum('status', ['Active', 'Sold Out'])->default('Active');
+            $table->integer('capital')->default(0);
+            $table->integer('total_sales')->default(0);
             $table->integer('stock_qty')->default(0);
-            $table->decimal('total_sales', 12, 2)->default(0);
-            $table->decimal('capital', 12, 2)->default(0);
+            $table->enum('status', ['Active', 'Sold Out'])->default('Active');
             $table->timestamps();
         });
     }

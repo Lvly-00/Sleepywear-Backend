@@ -13,11 +13,10 @@ return new class extends Migration
     {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_ref')->unique();
-            $table->string('customer_name')->nullable();
-            $table->enum('status', ['draft', 'paid'])->default('draft');
-            $table->decimal('total', 12, 2)->default(0);
-            $table->decimal('additional_fee', 12, 2)->default(0);
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->integer('additional_fee')->default(0);
+            $table->integer('total')->default(0);
+            $table->enum('status', ['Draft', 'Paid'])->default('Draft');
             $table->timestamps();
         });
     }

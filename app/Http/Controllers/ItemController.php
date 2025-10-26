@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ItemController extends Controller
 {
+
     // 🔹 List all items, with optional filtering by collection
     public function index(Request $request)
     {

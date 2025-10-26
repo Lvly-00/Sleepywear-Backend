@@ -11,7 +11,7 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'invoice_id',
+        'customer_id',
         'first_name',
         'last_name',
         'address',
@@ -19,17 +19,18 @@ class Order extends Model
         'social_handle',
         'order_date',
         'total',
-        'payment_status',
-        'payment_method',
-        'payment_image',
-        'total_paid',
-        'payment_date',
 
     ];
 
+      public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+
     public function invoice()
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->hasOne(Invoice::class);
     }
 
     public function items()
@@ -39,7 +40,7 @@ class Order extends Model
 
     public function orderItems()
     {
-        return $this->items();
+        return $this->hasMany(OrderItem::class);
     }
 
     // Single latest payment relation

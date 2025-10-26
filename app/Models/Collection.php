@@ -14,10 +14,10 @@ class Collection extends Model
         'name',
         'release_date',
         'qty',
-        'status',
+        'capital',
         'total_sales',
         'stock_qty',
-        'capital',
+        'status',
 
     ];
 
