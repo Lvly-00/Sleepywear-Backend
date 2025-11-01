@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Password;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use App\Notifications\ResetPasswordNotification;
+use App\Services\BrevoMailer;
 
 class AuthController extends Controller
 {
@@ -66,11 +67,22 @@ class AuthController extends Controller
         // Generate reset token
         $token = Password::createToken($user);
 
-        // Send email using custom notification pointing to frontend
-        $user->notify(new ResetPasswordNotification($token));
+        // Generate reset token
+        $token = Password::createToken($user);
 
-        return response()->json(['message' => 'Password reset link sent']);
+        // Build frontend reset URL (e.g., React page)
+        $resetUrl = env('APP_FRONTEND_URL') . "/reset-password?token={$token}&email=" . urlencode($user->email);
+
+        // Send email via Brevo API
+        $sent = BrevoMailer::sendResetLink($user->email, $resetUrl);
+
+        if (!$sent) {
+            return response()->json(['message' => 'Failed to send reset email. Please try again later.'], 500);
+        }
+
+        return response()->json(['message' => 'Password reset link sent successfully.']);
     }
+
 
     /**
      * Reset password using token
