@@ -46,30 +46,48 @@ class CollectionController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'release_date' => 'required|date',
-            'capital' => 'required|numeric|min:0',
-        ]);
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'release_date' => 'required|date',
+        'capital' => 'required|numeric|min:0',
+    ]);
 
-        $collection = Collection::create($request->only('name', 'release_date', 'capital'));
-
-        $collection->load('items');
-        $collection->stock_qty = $collection->items->sum('collection_stock_qty');
-        $collection->qty = $collection->items->count();
-        $collection->total_sales = $collection->items
-            ->where('status', 'Sold Out')
-            ->sum('price');
-        $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
-
-        // Convert numeric name to ordinal
-        if (is_numeric($collection->name)) {
-            $collection->name = $this->ordinal($collection->name);
-        }
-
-        return response()->json($collection, 201);
+    $inputName = $request->input('name');
+    if (is_numeric($inputName)) {
+        $finalName = $this->ordinal($inputName);
+    } else {
+        $finalName = $inputName;
     }
+
+    $exists = Collection::where('name', $finalName)->exists();
+    if ($exists) {
+        // Return Laravel validation error style
+        return response()->json([
+            'message' => 'The given data was invalid.',
+            'errors' => [
+                'name' => ['The collection name has already been taken.'],
+            ],
+        ], 422);
+    }
+
+    $collection = Collection::create([
+        'name' => $finalName,
+        'release_date' => $request->input('release_date'),
+        'capital' => $request->input('capital'),
+    ]);
+
+    $collection->load('items');
+    $collection->stock_qty = $collection->items->sum('collection_stock_qty');
+    $collection->qty = $collection->items->count();
+    $collection->total_sales = $collection->items
+        ->where('status', 'Sold Out')
+        ->sum('price');
+    $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+
+    return response()->json($collection, 201);
+}
+
 
     public function show(Collection $collection)
     {
