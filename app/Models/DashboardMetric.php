@@ -12,7 +12,7 @@ class DashboardMetric extends Model
         'net_income',
         'total_items_sold',
         'total_invoices',
-        'collection_sales'
+        'collection_sales',
     ];
 
     protected $casts = [

@@ -3,9 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
-
 
 class Invoice extends Model
 {
@@ -16,7 +14,7 @@ class Invoice extends Model
         'additional_fee',
     ];
 
-     public function order()
+    public function order()
     {
         return $this->belongsTo(Order::class);
     }

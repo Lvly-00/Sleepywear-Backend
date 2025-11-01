@@ -12,6 +12,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $invoice->load(['order.items']);
+
         return response()->json($invoice);
     }
 
@@ -46,7 +47,7 @@ class InvoiceController extends Controller
         $invoice = Invoice::with('order.payment')->findOrFail($invoiceId);
         $order = $invoice->order;
 
-        if (!$order) {
+        if (! $order) {
             throw new \Exception('No order linked to this invoice.');
         }
 
@@ -55,11 +56,11 @@ class InvoiceController extends Controller
         $additionalFee = $order->payment?->additional_fee ?? 0;
         $grandTotal = $order->total + $additionalFee;
 
-       $invoice->update([
-        'status' => $isPaid ? 'Paid' : 'Draft',
-        'total' => $order->total + $additionalFee,
-        'additional_fee' => $additionalFee,
-    ]);
+        $invoice->update([
+            'status' => $isPaid ? 'Paid' : 'Draft',
+            'total' => $order->total + $additionalFee,
+            'additional_fee' => $additionalFee,
+        ]);
 
         return response()->json([
             'message' => 'Invoice status, total, and additional fee updated successfully',
@@ -84,9 +85,11 @@ class InvoiceController extends Controller
             $invoice->delete();
 
             DB::commit();
+
             return response()->json(['message' => 'Invoice and linked order deleted successfully']);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return response()->json([
                 'error' => 'Failed to delete invoice',
                 'details' => $e->getMessage(),
@@ -116,9 +119,11 @@ class InvoiceController extends Controller
             }
 
             DB::commit();
+
             return response()->json(['message' => 'Order deleted and invoice updated successfully']);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

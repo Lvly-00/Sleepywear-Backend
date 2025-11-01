@@ -13,9 +13,9 @@ class CustomerController extends Controller
         $search = $request->query('search');
         $customers = Customer::when($search, function ($query, $search) {
             $query->where('first_name', 'like', "%$search%")
-                  ->orWhere('last_name', 'like', "%$search%")
-                  ->orWhere('contact_number', 'like', "%$search%")
-                  ->orWhere('social_handle', 'like', "%$search%");
+                ->orWhere('last_name', 'like', "%$search%")
+                ->orWhere('contact_number', 'like', "%$search%")
+                ->orWhere('social_handle', 'like', "%$search%");
         })->get();
 
         return response()->json($customers);
@@ -33,6 +33,7 @@ class CustomerController extends Controller
         ]);
 
         $customer = Customer::create($validated);
+
         return response()->json($customer);
     }
 
@@ -49,6 +50,7 @@ class CustomerController extends Controller
 
         $customer = Customer::findOrFail($id);
         $customer->update($validated);
+
         return response()->json($customer);
     }
 
@@ -57,6 +59,7 @@ class CustomerController extends Controller
     {
         $customer = Customer::findOrFail($id);
         $customer->delete();
+
         return response()->json(['message' => 'Customer deleted']);
     }
 }

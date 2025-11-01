@@ -7,18 +7,21 @@ use Illuminate\Http\Request;
 
 class CollectionController extends Controller
 {
-
     private function ordinal($number)
     {
         $suffix = 'th';
-        if (!in_array(($number % 100), [11,12,13])) {
+        if (! in_array(($number % 100), [11, 12, 13])) {
             switch ($number % 10) {
-                case 1: $suffix = 'st'; break;
-                case 2: $suffix = 'nd'; break;
-                case 3: $suffix = 'rd'; break;
+                case 1: $suffix = 'st';
+                    break;
+                case 2: $suffix = 'nd';
+                    break;
+                case 3: $suffix = 'rd';
+                    break;
             }
         }
-        return $number . $suffix . ' Collection';
+
+        return $number.$suffix.' Collection';
     }
 
     public function index()
@@ -35,6 +38,7 @@ class CollectionController extends Controller
                 ->sum('price');
             $col->capital = $col->capital ?? 0;
             $col->status = $col->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+
             return $col;
         });
 
@@ -67,7 +71,6 @@ class CollectionController extends Controller
         return response()->json($collection, 201);
     }
 
-
     public function show(Collection $collection)
     {
         $collection->load('items');
@@ -86,8 +89,7 @@ class CollectionController extends Controller
         return response()->json($collection);
     }
 
-
-       public function update(Request $request, Collection $collection)
+    public function update(Request $request, Collection $collection)
     {
         $request->validate([
             'name' => 'required|string|max:255',
@@ -112,11 +114,10 @@ class CollectionController extends Controller
         return response()->json($collection);
     }
 
-
-
     public function destroy(Collection $collection)
     {
         $collection->delete();
+
         return response()->noContent();
     }
 }

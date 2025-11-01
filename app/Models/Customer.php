@@ -11,10 +11,10 @@ class Customer extends Model
         'last_name',
         'address',
         'contact_number',
-        'social_handle'
+        'social_handle',
     ];
 
-     public function orders()
+    public function orders()
     {
         return $this->hasMany(Order::class);
     }

@@ -2,19 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\Item;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\Item;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-
     public function index()
     {
         $orders = Order::with(['items', 'payment'])
@@ -24,10 +22,11 @@ class OrderController extends Controller
 
         $orders->map(function ($order) {
             if ($order->payment && $order->payment->payment_image) {
-                $order->payment_image_url = asset('storage/' . $order->payment->payment_image);
+                $order->payment_image_url = asset('storage/'.$order->payment->payment_image);
             } else {
                 $order->payment_image_url = null;
             }
+
             return $order;
         });
 
@@ -57,7 +56,7 @@ class OrderController extends Controller
                     'address' => $customer->address,
                     'contact_number' => $customer->contact_number,
                     'social_handle' => $customer->social_handle,
-                    'total' => 0
+                    'total' => 0,
                 ]);
 
                 $orderTotal = 0;
@@ -79,12 +78,11 @@ class OrderController extends Controller
                 $order->update(['total' => $orderTotal]);
 
                 // Create payment record (unpaid by default)
-               Payment::create([
-                'order_id' => $order->id,
-                'payment_status' => 'Unpaid',
-                'total_paid' => 0
-            ]);
-
+                Payment::create([
+                    'order_id' => $order->id,
+                    'payment_status' => 'Unpaid',
+                    'total_paid' => 0,
+                ]);
 
                 // Create invoice
                 Invoice::create([
@@ -98,7 +96,7 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Order creation failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -126,12 +124,12 @@ class OrderController extends Controller
 
             return response()->json([
                 'message' => 'Order updated',
-                'order' => $order->load(['items', 'payment'])
+                'order' => $order->load(['items', 'payment']),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Order update failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -144,7 +142,9 @@ class OrderController extends Controller
                 // Revert previous items to available
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
-                    if ($item) $item->update(['status' => 'Available']);
+                    if ($item) {
+                        $item->update(['status' => 'Available']);
+                    }
                 }
 
                 // Delete previous order items
@@ -169,78 +169,83 @@ class OrderController extends Controller
                 $order->update(['total' => $orderTotal]);
 
                 // Update invoice total
-                if ($order->invoice) $order->invoice->update(['total' => $orderTotal]);
+                if ($order->invoice) {
+                    $order->invoice->update(['total' => $orderTotal]);
+                }
 
                 return response()->json([
                     'message' => 'Order items updated successfully',
-                    'order' => $order->load(['items', 'payment'])
+                    'order' => $order->load(['items', 'payment']),
                 ]);
             });
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to update order items',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
 
-//   public function updatePayment(Request $request, Payment $payment)
-// {
-//     try {
-//         $payment->update($request->only([
-//             'payment_status',
-//             'payment_method',
-//             'total_paid',
-//             'payment_date'
-//         ]));
+    //   public function updatePayment(Request $request, Payment $payment)
+    // {
+    //     try {
+    //         $payment->update($request->only([
+    //             'payment_status',
+    //             'payment_method',
+    //             'total_paid',
+    //             'payment_date'
+    //         ]));
 
-//         if ($payment->payment_status === 'Paid' && $payment->order->invoice) {
-//             $payment->order->invoice->update(['status' => 'Paid']);
-//         }
+    //         if ($payment->payment_status === 'Paid' && $payment->order->invoice) {
+    //             $payment->order->invoice->update(['status' => 'Paid']);
+    //         }
 
-//         return response()->json([
-//             'message' => 'Payment updated successfully',
-//             'payment' => $payment
-//         ]);
-//     } catch (\Exception $e) {
-//         return response()->json([
-//             'error' => 'Failed to update payment',
-//             'message' => $e->getMessage()
-//         ], 500);
-//     }
-// }
+    //         return response()->json([
+    //             'message' => 'Payment updated successfully',
+    //             'payment' => $payment
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'error' => 'Failed to update payment',
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 
-
-   public function destroy(Order $order)
-{
-    try {
-        if (!$order->payment || $order->payment->payment_status !== 'Paid') {
-            foreach ($order->items as $orderItem) {
-                $item = $orderItem->item;
-                if ($item) {
-                    $item->update(['status' => 'Available']);
+    public function destroy(Order $order)
+    {
+        try {
+            if (! $order->payment || $order->payment->payment_status !== 'Paid') {
+                foreach ($order->items as $orderItem) {
+                    $item = $orderItem->item;
+                    if ($item) {
+                        $item->update(['status' => 'Available']);
+                    }
                 }
             }
+
+            // Delete order items
+            $order->items()->delete();
+
+            // Delete payment and invoice
+            if ($order->payment) {
+                $order->payment->delete();
+            }
+            if ($order->invoice) {
+                $order->invoice->delete();
+            }
+
+            // Delete order
+            $order->delete();
+
+            return response()->json(['message' => 'Order deleted successfully']);
+        } catch (\Exception $e) {
+            \Log::error('Order delete failed: '.$e->getMessage());
+
+            return response()->json([
+                'error' => 'Failed to delete order',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        // Delete order items
-        $order->items()->delete();
-
-        // Delete payment and invoice
-        if ($order->payment) $order->payment->delete();
-        if ($order->invoice) $order->invoice->delete();
-
-        // Delete order
-        $order->delete();
-
-        return response()->json(['message' => 'Order deleted successfully']);
-    } catch (\Exception $e) {
-        \Log::error('Order delete failed: ' . $e->getMessage());
-        return response()->json([
-            'error' => 'Failed to delete order',
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
-
 }

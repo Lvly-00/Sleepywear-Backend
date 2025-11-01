@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class ResetPasswordNotification extends Notification
 {
@@ -22,7 +22,7 @@ class ResetPasswordNotification extends Notification
     public function toMail($notifiable)
     {
         // Point directly to your React frontend
-        $url = config('app.frontend_url') . "/reset-password/{$this->token}?email={$notifiable->email}";
+        $url = config('app.frontend_url')."/reset-password/{$this->token}?email={$notifiable->email}";
 
         return (new MailMessage)
             ->subject('Reset Your Password')

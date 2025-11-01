@@ -3,34 +3,32 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class UserSettingsController extends Controller
 {
-
     public function show(Request $request)
-{
-    Log::info('Authenticated user:', ['user' => $request->user()]);
-    $user = $request->user();
+    {
+        Log::info('Authenticated user:', ['user' => $request->user()]);
+        $user = $request->user();
 
-    if (!$user) {
-        return response()->json(['message' => 'User not authenticated'], 401);
+        if (! $user) {
+            return response()->json(['message' => 'User not authenticated'], 401);
+        }
+
+        return response()->json([
+            'business_name' => $user->business_name ?? '',
+            'email' => $user->email ?? '',
+        ]);
     }
-
-    return response()->json([
-        'business_name' => $user->business_name ?? '',
-        'email' => $user->email ?? '',
-    ]);
-}
-
 
     public function updateProfile(Request $request)
     {
         $request->validate([
             'business_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $request->user()->id,
+            'email' => 'required|email|unique:users,email,'.$request->user()->id,
         ]);
 
         $user = $request->user();
@@ -52,9 +50,9 @@ class UserSettingsController extends Controller
 
         $user = $request->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
-                'current_password' => ['Current password is incorrect.']
+                'current_password' => ['Current password is incorrect.'],
             ]);
         }
 

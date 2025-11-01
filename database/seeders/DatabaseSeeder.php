@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Collection;
 use App\Models\Item;
 use App\Models\User;
-use App\Models\Collection;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -25,7 +25,7 @@ class DatabaseSeeder extends Seeder
         // Additional accounts
         $users = [
             ['name' => 'ToyotaZ', 'business_name' => 'Toyota', 'email' => 'ruthmayreginos2786@gmail.com'],
-            ['name' => 'SamsungZ ','business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
+            ['name' => 'SamsungZ ', 'business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
             ['name' => 'AppleZZ', 'business_name' => 'Apple', 'email' => 'kirkbondoc31@gmail.com'],
             ['name' => 'GoogleZ', 'business_name' => 'Toyota', 'email' => 'myriahvielle619@gmail.com'],
         ];

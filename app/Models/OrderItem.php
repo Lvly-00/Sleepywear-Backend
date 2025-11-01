@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderItem extends Model
@@ -16,6 +15,7 @@ class OrderItem extends Model
         'quantity',
         'status',
     ];
+
     protected $appends = ['item_code'];
 
     public function getItemCodeAttribute()
@@ -37,6 +37,4 @@ class OrderItem extends Model
     {
         return $this->item->collection();
     }
-
-
 }

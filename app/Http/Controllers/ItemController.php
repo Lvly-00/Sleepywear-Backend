@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Item;
 use App\Models\Collection;
+use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,13 +16,13 @@ class ItemController extends Controller
         $items = Item::where('collection_id', $collectionId)
             ->orderByRaw("CASE WHEN status = 'Available' THEN 0 ELSE 1 END")
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'id' => $item->id,
                 'name' => $item->name,
                 'code' => $item->code,
                 'price' => $item->price,
                 'status' => $item->status,
-                'image_url' => $item->image ? asset('storage/' . $item->image) : null,
+                'image_url' => $item->image ? asset('storage/'.$item->image) : null,
             ]);
 
         return response()->json($items);
@@ -53,7 +53,7 @@ class ItemController extends Controller
             $lastNumber = intval(substr($lastItem->code, -2));
         }
 
-        $itemCode = $collectionNumber . sprintf("%02d", $lastNumber + 1);
+        $itemCode = $collectionNumber.sprintf('%02d', $lastNumber + 1);
 
         $imagePath = $request->hasFile('image') ? $request->file('image')->store('items', 'public') : null;
 
@@ -72,7 +72,6 @@ class ItemController extends Controller
         return response()->json($item, 201);
     }
 
-
     public function update(Request $request, Item $item)
     {
         $request->validate([
@@ -83,14 +82,19 @@ class ItemController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            if ($item->image) Storage::disk('public')->delete($item->image);
+            if ($item->image) {
+                Storage::disk('public')->delete($item->image);
+            }
             $item->image = $request->file('image')->store('items', 'public');
         }
 
         if ($request->filled('status') && $request->status !== $item->status) {
             $collection = $item->collection;
-            if ($request->status === 'Sold Out') $collection->decrement('stock_qty');
-            else $collection->increment('stock_qty');
+            if ($request->status === 'Sold Out') {
+                $collection->decrement('stock_qty');
+            } else {
+                $collection->increment('stock_qty');
+            }
         }
 
         $item->update([
@@ -107,10 +111,14 @@ class ItemController extends Controller
     {
         $collection = $item->collection;
 
-        if ($item->status === 'Available') $collection->decrement('stock_qty');
+        if ($item->status === 'Available') {
+            $collection->decrement('stock_qty');
+        }
         $collection->decrement('qty');
 
-        if ($item->image) Storage::disk('public')->delete($item->image);
+        if ($item->image) {
+            Storage::disk('public')->delete($item->image);
+        }
         $item->delete();
 
         return response()->json(['message' => 'Item deleted successfully']);
