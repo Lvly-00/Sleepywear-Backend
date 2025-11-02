@@ -34,7 +34,6 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 // Public logout route (for now we’ll protect it below)
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
-Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
 /*
 |--------------------------------------------------------------------------
 | Protected Routes (Require Bearer Token)
@@ -42,6 +41,7 @@ Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
 */
 Route::middleware('auth:sanctum')->group(function () {
 
+    Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
     // Collections & Items
     Route::apiResource('collections', CollectionController::class);
     Route::apiResource('items', ItemController::class);
