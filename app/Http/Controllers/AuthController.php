@@ -82,10 +82,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'We can\'t find a user with that email.'], 404);
         }
 
-        // Generate reset token
-        $token = Password::createToken($user);
-
-        // Generate reset token
+        // Generate reset token (only once)
         $token = Password::createToken($user);
 
         // Build frontend reset URL (e.g., React page)
@@ -112,21 +109,18 @@ class AuthController extends Controller
             'password' => [
                 'required',
                 'string',
-                'min:8',              // at least 8 characters
-                'regex:/[a-z]/',      // at least one lowercase letter
-                'regex:/[A-Z]/',      // at least one uppercase letter
-                'regex:/[0-9]/',      // at least one number
-                'regex:/[@$!%*#?&]/', // at least one special character
+                'min:8',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*#?&]/',
                 'confirmed',
             ],
         ], [
             'email.required' => 'Email is required.',
             'email.email' => 'Please provide a valid email address.',
-
             'token.required' => 'Reset token is required.',
-
             'password.required' => 'Password is required.',
-            'password.string' => 'Password must be a valid string.',
             'password.min' => 'Password must be at least 8 characters long.',
             'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
             'password.confirmed' => 'Password confirmation does not match.',
