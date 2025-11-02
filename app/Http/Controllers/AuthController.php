@@ -104,57 +104,56 @@ class AuthController extends Controller
     /**
      * Reset password using token
      */
-  public function resetPassword(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-        'token' => 'required',
-        'password' => [
-            'required',
-            'string',
-            'min:8',              // at least 8 characters
-            'regex:/[a-z]/',      // at least one lowercase letter
-            'regex:/[A-Z]/',      // at least one uppercase letter
-            'regex:/[0-9]/',      // at least one number
-            'regex:/[@$!%*#?&]/', // at least one special character
-            'confirmed',
-        ],
-    ], [
-        'email.required' => 'Email is required.',
-        'email.email' => 'Please provide a valid email address.',
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required',
+            'password' => [
+                'required',
+                'string',
+                'min:8',              // at least 8 characters
+                'regex:/[a-z]/',      // at least one lowercase letter
+                'regex:/[A-Z]/',      // at least one uppercase letter
+                'regex:/[0-9]/',      // at least one number
+                'regex:/[@$!%*#?&]/', // at least one special character
+                'confirmed',
+            ],
+        ], [
+            'email.required' => 'Email is required.',
+            'email.email' => 'Please provide a valid email address.',
 
-        'token.required' => 'Reset token is required.',
+            'token.required' => 'Reset token is required.',
 
-        'password.required' => 'Password is required.',
-        'password.string' => 'Password must be a valid string.',
-        'password.min' => 'Password must be at least 8 characters long.',
-        'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
-        'password.confirmed' => 'Password confirmation does not match.',
-    ]);
+            'password.required' => 'Password is required.',
+            'password.string' => 'Password must be a valid string.',
+            'password.min' => 'Password must be at least 8 characters long.',
+            'password.regex' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
+            'password.confirmed' => 'Password confirmation does not match.',
+        ]);
 
-    $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
 
-    if (! $user) {
-        return response()->json(['message' => 'Invalid email address.'], 404);
-    }
-
-    $status = Password::reset(
-        $request->only('email', 'password', 'password_confirmation', 'token'),
-        function ($user, $password) {
-            $user->forceFill([
-                'password' => Hash::make($password),
-            ])->save();
-
-            // Revoke all existing tokens after password reset
-            $user->tokens()->delete();
+        if (! $user) {
+            return response()->json(['message' => 'Invalid email address.'], 404);
         }
-    );
 
-    if ($status === Password::PASSWORD_RESET) {
-        return response()->json(['message' => 'Password reset successful! Redirecting to login...']);
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                // Revoke all existing tokens after password reset
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password reset successful! Redirecting to login...']);
+        }
+
+        return response()->json(['message' => 'Invalid or expired token. Please request a new password reset link.'], 400);
     }
-
-    return response()->json(['message' => 'Invalid or expired token. Please request a new password reset link.'], 400);
-}
-
 }

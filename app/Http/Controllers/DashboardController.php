@@ -2,58 +2,73 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DashboardMetric;
-use Carbon\Carbon;
+use App\Models\Collection;
+use App\Models\OrderItem;
+use App\Models\Order;
+use App\Models\Payment;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
     public function summary()
     {
-        $today = Carbon::now()->format('Y-m-d');
 
-        // Get today's dashboard metric as reference
-        $metric = DashboardMetric::latest('date')->first();
 
-        // Fallback to 0 if no metric exists
-        $grossIncome = $metric->gross_income ?? 0;
-        $netIncome = $metric->net_income ?? 0;
-        $totalItemsSold = $metric->total_items_sold ?? 0;
-        $totalInvoices = $metric->total_invoices ?? 0;
+        try {
+            $grossIncome = Payment::where('payment_status', 'Paid')->sum('total');
+            $additionalFees = Payment::where('payment_status', 'Paid')->sum('additional_fee');
+            $netIncome = $grossIncome - $additionalFees;
 
-        // For collections, aggregate sales across all metrics
-        $collectionSalesData = DashboardMetric::orderBy('date')
-            ->get()
-            ->pluck('collection_sales');
+            $totalItemsSold = OrderItem::join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->join('payments', 'payments.order_id', '=', 'orders.id')
+                ->where('payments.payment_status', 'Paid')
+                ->where('order_items.status', 'Sold Out')
+                ->sum('order_items.quantity');
 
-        $collectionTotals = [];
+            $totalCustomers = Order::join('payments', 'orders.id', '=', 'payments.order_id')
+            ->where('payments.payment_status', 'Paid')
+            ->whereNotNull('orders.customer_id')
+            ->distinct()
+            ->count('orders.customer_id');
 
-        foreach ($collectionSalesData as $dailySales) {
-            foreach ($dailySales as $collectionName => $total) {
-                $collectionTotals[$collectionName][] = [
-                    'date' => $dailySales['date'] ?? Carbon::now()->format('Y-m-d'),
-                    'total' => $total,
-                ];
-            }
-        }
 
-        $collectionSales = collect($collectionTotals)->map(function ($sales, $collectionName) {
-            return [
-                'collection_name' => $collectionName,
-                'dailySales' => collect($sales)->map(function ($s) {
+
+            $collectionSales = Collection::select('collections.id', 'collections.name')
+                ->leftJoin('items', 'collections.id', '=', 'items.collection_id')
+                ->leftJoin('order_items', 'items.id', '=', 'order_items.item_id')
+                ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
+                ->leftJoin('payments', 'payments.order_id', '=', 'orders.id')
+                ->where('payments.payment_status', 'Paid')
+                ->where('order_items.status', 'Sold Out')
+                ->groupBy('collections.id', 'collections.name')
+                ->selectRaw('collections.name as collection_name, COALESCE(SUM(order_items.price * order_items.quantity), 0) as total_sales')
+                ->get()
+                ->map(function ($collection) {
                     return [
-                        'date' => $s['date'],
-                        'total' => round($s['total']),
+                        'collection_name' => $collection->collection_name,
+                        'total_sales' => round($collection->total_sales),
                     ];
-                }),
-            ];
-        })->values();
+                });
 
-        return response()->json([
+            \Log::info('Dashboard summary data:', [
+            'totalCustomers' => $totalCustomers,
             'grossIncome' => $grossIncome,
             'netIncome' => $netIncome,
-            'totalItemsSold' => $totalItemsSold,
-            'totalInvoices' => $totalInvoices,
-            'collectionSales' => $collectionSales,
-        ]);
+]);
+
+
+            return response()->json([
+                'grossIncome' => round($grossIncome),
+                'netIncome' => round($netIncome),
+                'totalItemsSold' => (int) $totalItemsSold,
+                'totalCustomers' => (int) $totalCustomers,
+                'collectionSales' => $collectionSales,
+            ]);
+
+             return response()->json(['message' => 'No data returned, test']);
+        } catch (\Exception $e) {
+            Log::error('Dashboard summary error: ' . $e->getMessage());
+            return response()->json(['message' => 'Server Error'], 500);
+        }
     }
 }

@@ -1,23 +1,21 @@
 <?php
 
-// namespace Database\Factories;
+namespace Database\Factories;
 
-// use App\Models\Collection;
-// use Illuminate\Database\Eloquent\Factories\Factory;
+use App\Models\Collection;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
-// class ItemFactory extends Factory
-// {
-//     public function definition(): array
-//     {
-//         return [
-//             'code' => strtoupper($this->faker->unique()->bothify('ITM#####')),
-//             'name' => $this->faker->word() . ' Shirt',
-//             'image' => $this->faker->imageUrl(200, 200, 'fashion', true, 'clothes'),
-//             'price' => $this->faker->randomFloat(2, 10, 500),
-//             'notes' => $this->faker->sentence(),
-//             'collection_stock_qty' => $this->faker->numberBetween(1, 100),
-//             'collection_id' => Collection::factory(),
-//             'status' => $this->faker->randomElement(['available', 'taken']),
-//         ];
-//     }
-// }
+class ItemFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'code' => strtoupper($this->faker->unique()->bothify('ITM#####')),
+            'name' => $this->faker->word().' Shirt',
+            'image' => $this->faker->imageUrl(200, 200, 'fashion', true, 'clothes'),
+            'price' => $this->faker->numberBetween(10, 500), // integer price
+            'collection_id' => Collection::factory(),
+            'status' => $this->faker->randomElement(['Available', 'Sold Out']), // capitalized enum
+        ];
+    }
+}

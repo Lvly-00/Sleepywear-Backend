@@ -9,9 +9,6 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         // Main business account
@@ -25,9 +22,9 @@ class DatabaseSeeder extends Seeder
         // Additional accounts
         $users = [
             ['name' => 'ToyotaZ', 'business_name' => 'Toyota', 'email' => 'ruthmayreginos2786@gmail.com'],
-            ['name' => 'SamsungZ ', 'business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
+            ['name' => 'SamsungZ', 'business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
             ['name' => 'AppleZZ', 'business_name' => 'Apple', 'email' => 'kirkbondoc31@gmail.com'],
-            ['name' => 'GoogleZ', 'business_name' => 'Toyota', 'email' => 'myriahvielle619@gmail.com'],
+            ['name' => 'GoogleZ', 'business_name' => 'Google', 'email' => 'myriahvielle619@gmail.com'], // fixed business_name here
         ];
 
         foreach ($users as $user) {
@@ -39,17 +36,16 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Uncomment if you want to seed collections and items later
-
-        // Collection::factory()
-        //     ->count(30)
-        //     ->create()
-        //     ->each(function ($collection) {
-        //         Item::factory()
-        //             ->count(70)
-        //             ->for($collection)
-        //             ->create();
-        //     });
-
+        // Seed collections and items per collection
+        Collection::factory()
+            ->count(30)
+            ->create()
+            ->each(function ($collection) {
+                Item::factory()
+                    ->count(70)
+                    ->create([
+                        'collection_id' => $collection->id,
+                    ]);
+            });
     }
 }
