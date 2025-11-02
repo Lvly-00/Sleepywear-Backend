@@ -1,6 +1,6 @@
-    <?php
+<?php
 
-    use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
@@ -10,15 +10,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\UserSettingsController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-Route::options('/{any}', function (Request $request) {
-    return response()->json(['status' => 'ok'], 200)
-        ->header('Access-Control-Allow-Origin', '*')
-        ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        ->header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With');
-})->where('any', '.*');
 
 /*
 |--------------------------------------------------------------------------
@@ -41,7 +33,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 */
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
     // Collections & Items
     Route::apiResource('collections', CollectionController::class);
     Route::apiResource('items', ItemController::class);
@@ -58,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('customers', CustomerController::class);
 
     // Dashboard Summary
+    Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
 
     // User Settings
     Route::get('/user/settings', [UserSettingsController::class, 'show']);
