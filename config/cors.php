@@ -7,11 +7,9 @@ return [
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
     |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    | You can safely keep all these routes open for API-based access.
+    | Since your frontend (React) uses a different origin, CORS must explicitly
+    | allow that frontend domain to access your Laravel backend.
     |
     */
 
@@ -21,11 +19,22 @@ return [
         'logout',
         'register',
         'forgot-password',
-        'password-reset',
+        'reset-password',
+        'sanctum/csrf-cookie',
     ],
 
     'allowed_methods' => ['*'],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Allowed Origins
+    |--------------------------------------------------------------------------
+    |
+    | Use environment variables so it works on both localhost and production.
+    | Example:
+    | FRONTEND_URL=https://sleepywear-frontend.onrender.com,http://localhost:5173
+    |
+    */
     'allowed_origins' => explode(',', env('FRONTEND_URL', 'http://localhost:5173')),
 
     'allowed_origins_patterns' => [],
