@@ -1,58 +1,66 @@
     <?php
 
     use App\Http\Controllers\AuthController;
-    use App\Http\Controllers\CollectionController;
-    use App\Http\Controllers\CustomerController;
-    use App\Http\Controllers\DashboardController;
-    use App\Http\Controllers\InvoiceController;
-    use App\Http\Controllers\ItemController;
-    use App\Http\Controllers\OrderController;
-    use App\Http\Controllers\OrderItemController;
-    use App\Http\Controllers\PaymentController;
-    use App\Http\Controllers\UserSettingsController;
-    use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CollectionController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ItemController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OrderItemController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\UserSettingsController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Public Routes (No Auth Required)
-    |--------------------------------------------------------------------------
-    */
+Route::options('/{any}', function (Request $request) {
+    return response()->json(['status' => 'ok'], 200)
+        ->header('Access-Control-Allow-Origin', '*')
+        ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        ->header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With');
+})->where('any', '.*');
 
-    // Authentication
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+/*
+|--------------------------------------------------------------------------
+| Public Routes (No Auth Required)
+|--------------------------------------------------------------------------
+*/
 
-    // Public logout route (for now we’ll protect it below)
-    Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+// Authentication
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-    Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
-    /*
-    |--------------------------------------------------------------------------
-    | Protected Routes (Require Bearer Token)
-    |--------------------------------------------------------------------------
-    */
-    Route::middleware('auth:sanctum')->group(function () {
+// Public logout route (for now we’ll protect it below)
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
-        // Collections & Items
-        Route::apiResource('collections', CollectionController::class);
-        Route::apiResource('items', ItemController::class);
-        Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
+Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
+/*
+|--------------------------------------------------------------------------
+| Protected Routes (Require Bearer Token)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
 
-        // Orders, Payments & Invoices
-        Route::apiResource('orders', OrderController::class);
-        Route::apiResource('order-items', OrderItemController::class);
-        Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
-        Route::apiResource('invoices', InvoiceController::class);
-        Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
+    // Collections & Items
+    Route::apiResource('collections', CollectionController::class);
+    Route::apiResource('items', ItemController::class);
+    Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
 
-        // Customers
-        Route::apiResource('customers', CustomerController::class);
+    // Orders, Payments & Invoices
+    Route::apiResource('orders', OrderController::class);
+    Route::apiResource('order-items', OrderItemController::class);
+    Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
+    Route::apiResource('invoices', InvoiceController::class);
+    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
 
-        // Dashboard Summary
+    // Customers
+    Route::apiResource('customers', CustomerController::class);
 
-        // User Settings
-        Route::get('/user/settings', [UserSettingsController::class, 'show']);
-        Route::put('/user/settings', [UserSettingsController::class, 'updateProfile']);
-        Route::put('/user/settings/password', [UserSettingsController::class, 'updatePassword']);
-    });
+    // Dashboard Summary
+
+    // User Settings
+    Route::get('/user/settings', [UserSettingsController::class, 'show']);
+    Route::put('/user/settings', [UserSettingsController::class, 'updateProfile']);
+    Route::put('/user/settings/password', [UserSettingsController::class, 'updatePassword']);
+});

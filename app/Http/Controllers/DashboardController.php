@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Collection;
-use App\Models\OrderItem;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use Illuminate\Support\Facades\Log;
 
@@ -12,7 +12,6 @@ class DashboardController extends Controller
 {
     public function summary()
     {
-
 
         try {
             $grossIncome = Payment::where('payment_status', 'Paid')->sum('total');
@@ -26,12 +25,10 @@ class DashboardController extends Controller
                 ->sum('order_items.quantity');
 
             $totalCustomers = Order::join('payments', 'orders.id', '=', 'payments.order_id')
-            ->where('payments.payment_status', 'Paid')
-            ->whereNotNull('orders.customer_id')
-            ->distinct()
-            ->count('orders.customer_id');
-
-
+                ->where('payments.payment_status', 'Paid')
+                ->whereNotNull('orders.customer_id')
+                ->distinct()
+                ->count('orders.customer_id');
 
             $collectionSales = Collection::select('collections.id', 'collections.name')
                 ->leftJoin('items', 'collections.id', '=', 'items.collection_id')
@@ -51,11 +48,10 @@ class DashboardController extends Controller
                 });
 
             \Log::info('Dashboard summary data:', [
-            'totalCustomers' => $totalCustomers,
-            'grossIncome' => $grossIncome,
-            'netIncome' => $netIncome,
-]);
-
+                'totalCustomers' => $totalCustomers,
+                'grossIncome' => $grossIncome,
+                'netIncome' => $netIncome,
+            ]);
 
             return response()->json([
                 'grossIncome' => round($grossIncome),
@@ -65,9 +61,10 @@ class DashboardController extends Controller
                 'collectionSales' => $collectionSales,
             ]);
 
-             return response()->json(['message' => 'No data returned, test']);
+            return response()->json(['message' => 'No data returned, test']);
         } catch (\Exception $e) {
-            Log::error('Dashboard summary error: ' . $e->getMessage());
+            Log::error('Dashboard summary error: '.$e->getMessage());
+
             return response()->json(['message' => 'Server Error'], 500);
         }
     }

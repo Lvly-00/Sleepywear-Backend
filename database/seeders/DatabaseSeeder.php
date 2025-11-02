@@ -40,7 +40,7 @@ class DatabaseSeeder extends Seeder
         // ─── Seed 100 Collections ─────────────────────────────────
         for ($i = 1; $i <= 100; $i++) {
             $collection = Collection::create([
-                'name' => $this->ordinal($i) . ' Collection', // e.g. 1st Collection
+                'name' => $this->ordinal($i).' Collection', // e.g. 1st Collection
                 'release_date' => Carbon::now()->subDays(rand(0, 365)),
                 'qty' => 70,
                 'stock_qty' => 70,
@@ -77,9 +77,9 @@ class DatabaseSeeder extends Seeder
     {
         $ends = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
         if (($number % 100) >= 11 && ($number % 100) <= 13) {
-            return $number . 'th';
+            return $number.'th';
         } else {
-            return $number . $ends[$number % 10];
+            return $number.$ends[$number % 10];
         }
     }
 }
