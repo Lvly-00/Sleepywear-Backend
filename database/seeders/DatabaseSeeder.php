@@ -38,48 +38,48 @@ class DatabaseSeeder extends Seeder
         }
 
         // ─── Seed 100 Collections ─────────────────────────────────
-        // for ($i = 1; $i <= 100; $i++) {
-        //     $collection = Collection::create([
-        //         'name' => $this->ordinal($i).' Collection', // e.g. 1st Collection
-        //         'release_date' => Carbon::now()->subDays(rand(0, 365)),
-        //         'qty' => 70,
-        //         'stock_qty' => 70,
-        //         'capital' => rand(5000, 20000),
-        //         'total_sales' => 0,
-        //         'status' => 'Active',
-        //     ]);
+        for ($i = 1; $i <= 100; $i++) {
+            $collection = Collection::create([
+                'name' => $this->ordinal($i) . ' Collection', // e.g. 1st Collection
+                'release_date' => Carbon::now()->subDays(rand(0, 365)),
+                'qty' => 70,
+                'stock_qty' => 70,
+                'capital' => rand(5000, 20000),
+                'total_sales' => 0,
+                'status' => 'Active',
+            ]);
 
-        //     // ─── Seed 70 Items per Collection ──────────────────────
-        //     $itemsData = [];
-        //     for ($j = 1; $j <= 70; $j++) {
-        //         $itemCode = sprintf('%d%02d', $i, $j); // e.g. 101, 102, 103...
+            // ─── Seed 70 Items per Collection ──────────────────────
+            $itemsData = [];
+            for ($j = 1; $j <= 70; $j++) {
+                $itemCode = sprintf('%d%02d', $i, $j); // e.g. 101, 102, 103...
 
-        //         $itemsData[] = [
-        //             'collection_id' => $collection->id,
-        //             'code' => $itemCode,
-        //             'name' => "Item {$j} of {$collection->name}",
-        //             'price' => rand(100, 999),
-        //             'image' => "https://via.placeholder.com/200x200.png?text=Item+{$j}",
-        //             'status' => 'Available',
-        //             'created_at' => now(),
-        //             'updated_at' => now(),
-        //         ];
-        //     }
+                $itemsData[] = [
+                    'collection_id' => $collection->id,
+                    'code' => $itemCode,
+                    'name' => "Item {$j} of {$collection->name}",
+                    'price' => rand(100, 999),
+                    'image' => "https://via.placeholder.com/200x200.png?text=Item+{$j}",
+                    'status' => 'Available',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
 
-        //     Item::insert($itemsData);
-        // }
+            Item::insert($itemsData);
+        }
     }
 
     /**
      * Convert a number to its ordinal representation (e.g. 1 -> 1st)
      */
-    // private function ordinal($number)
-    // {
-    //     $ends = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
-    //     if (($number % 100) >= 11 && ($number % 100) <= 13) {
-    //         return $number.'th';
-    //     } else {
-    //         return $number.$ends[$number % 10];
-    //     }
-    // }
+    private function ordinal($number)
+    {
+        $ends = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
+        if (($number % 100) >= 11 && ($number % 100) <= 13) {
+            return $number . 'th';
+        } else {
+            return $number . $ends[$number % 10];
+        }
+    }
 }
