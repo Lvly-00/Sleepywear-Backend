@@ -36,5 +36,5 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false, // important for token-based auth
+    'supports_credentials' => true,
 ];
