@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CollectionController extends Controller
 {
@@ -12,34 +13,36 @@ class CollectionController extends Controller
         $suffix = 'th';
         if (! in_array(($number % 100), [11, 12, 13])) {
             switch ($number % 10) {
-                case 1: $suffix = 'st';
-                    break;
-                case 2: $suffix = 'nd';
-                    break;
-                case 3: $suffix = 'rd';
-                    break;
+                case 1: $suffix = 'st'; break;
+                case 2: $suffix = 'nd'; break;
+                case 3: $suffix = 'rd'; break;
             }
         }
 
-        return $number.$suffix.' Collection';
+        return $number . $suffix . ' Collection';
     }
 
     public function index()
     {
-        $collections = Collection::with('items')->get()->map(function ($col) {
-            if (is_numeric($col->name)) {
-                $col->name = $this->ordinal($col->name);
-            }
+        $cacheKey = 'collections_with_items';
+        $cacheDuration = 60 * 1; // 5 minutes, adjust as needed
 
-            $col->stock_qty = $col->sum('stock_qty');
-            $col->qty = $col->items->count();
-            $col->total_sales = $col->items
-                ->where('status', 'Sold Out')
-                ->sum('price');
-            $col->capital = $col->capital ?? 0;
-            $col->status = $col->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+        $collections = Cache::remember($cacheKey, $cacheDuration, function () {
+            return Collection::with('items')->get()->map(function ($col) {
+                if (is_numeric($col->name)) {
+                    $col->name = $this->ordinal($col->name);
+                }
 
-            return $col;
+                $col->stock_qty = $col->items->sum('stock_qty');
+                $col->qty = $col->items->count();
+                $col->total_sales = $col->items
+                    ->where('status', 'Sold Out')
+                    ->sum('price');
+                $col->capital = $col->capital ?? 0;
+                $col->status = $col->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+
+                return $col;
+            });
         });
 
         return response()->json($collections);
@@ -54,15 +57,9 @@ class CollectionController extends Controller
         ]);
 
         $inputName = $request->input('name');
-        if (is_numeric($inputName)) {
-            $finalName = $this->ordinal($inputName);
-        } else {
-            $finalName = $inputName;
-        }
+        $finalName = is_numeric($inputName) ? $this->ordinal($inputName) : $inputName;
 
-        $exists = Collection::where('name', $finalName)->exists();
-        if ($exists) {
-            // Return Laravel validation error style
+        if (Collection::where('name', $finalName)->exists()) {
             return response()->json([
                 'message' => 'The given data was invalid.',
                 'errors' => [
@@ -77,8 +74,10 @@ class CollectionController extends Controller
             'capital' => $request->input('capital'),
         ]);
 
+        Cache::forget('collections_with_items');
+
         $collection->load('items');
-        $collection->stock_qty = $collection->items->sum('collection_stock_qty');
+        $collection->stock_qty = $collection->items->sum('stock_qty');
         $collection->qty = $collection->items->count();
         $collection->total_sales = $collection->items
             ->where('status', 'Sold Out')
@@ -90,20 +89,26 @@ class CollectionController extends Controller
 
     public function show(Collection $collection)
     {
-        $collection->load('items');
-        $collection->stock_qty = $collection->sum('stock_qty');
-        $collection->qty = $collection->items->count();
-        $collection->total_sales = $collection->items
-            ->where('status', 'Sold Out')
-            ->sum('price');
-        $collection->capital = $collection->items->sum('capital');
-        $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
+        $cacheKey = 'collection_' . $collection->id;
 
-        if (is_numeric($collection->name)) {
-            $collection->name = $this->ordinal($collection->name);
-        }
+        $collectionData = Cache::remember($cacheKey, 300, function () use ($collection) {
+            $collection->load('items');
+            $collection->stock_qty = $collection->items->sum('stock_qty');
+            $collection->qty = $collection->items->count();
+            $collection->total_sales = $collection->items
+                ->where('status', 'Sold Out')
+                ->sum('price');
+            $collection->capital = $collection->items->sum('capital');
+            $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
 
-        return response()->json($collection);
+            if (is_numeric($collection->name)) {
+                $collection->name = $this->ordinal($collection->name);
+            }
+
+            return $collection;
+        });
+
+        return response()->json($collectionData);
     }
 
     public function update(Request $request, Collection $collection)
@@ -116,8 +121,11 @@ class CollectionController extends Controller
 
         $collection->update($request->only('name', 'release_date', 'capital'));
 
+        Cache::forget('collections_with_items');
+        Cache::forget('collection_' . $collection->id);
+
         $collection->load('items');
-        $collection->stock_qty = $collection->sum('stock_qty');
+        $collection->stock_qty = $collection->items->sum('stock_qty');
         $collection->qty = $collection->items->count();
         $collection->total_sales = $collection->items
             ->where('status', 'Sold Out')
@@ -134,6 +142,10 @@ class CollectionController extends Controller
     public function destroy(Collection $collection)
     {
         $collection->delete();
+
+        // Clear caches when deleting
+        Cache::forget('collections_with_items');
+        Cache::forget('collection_' . $collection->id);
 
         return response()->noContent();
     }
