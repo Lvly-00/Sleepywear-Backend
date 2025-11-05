@@ -10,24 +10,27 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
+    // Cache key and TTL centralized for easy maintenance
+    protected $cacheKey = 'orders_list';
+    protected $cacheTTL = 300; // seconds (5 minutes)
+
     public function index()
     {
-        $orders = Order::with(['items', 'payment'])
-            ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $orders->map(function ($order) {
-            if ($order->payment && $order->payment->payment_image) {
-                $order->payment_image_url = asset('storage/'.$order->payment->payment_image);
-            } else {
-                $order->payment_image_url = null;
-            }
-
-            return $order;
+        $orders = Cache::remember($this->cacheKey, $this->cacheTTL, function () {
+            return Order::with(['items', 'payment'])
+                ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($order) {
+                    $order->payment_image_url = $order->payment && $order->payment->payment_image
+                        ? asset('storage/' . $order->payment->payment_image)
+                        : null;
+                    return $order;
+                });
         });
 
         return response()->json($orders);
@@ -37,14 +40,15 @@ class OrderController extends Controller
     {
         try {
             return DB::transaction(function () use ($request) {
+                $customerData = $request->input('customer');
+                $itemsData = $request->input('items');
 
-                // Create or update customer
-                $customerData = $request->customer;
-                $customer = $customerData['id']
-                    ? Customer::find($customerData['id'])
+                // Find or create customer
+                $customer = isset($customerData['id']) && $customerData['id']
+                    ? Customer::findOrFail($customerData['id'])
                     : Customer::create($customerData);
 
-                if ($customerData['id']) {
+                if (isset($customerData['id']) && $customerData['id']) {
                     $customer->update($customerData);
                 }
 
@@ -61,7 +65,7 @@ class OrderController extends Controller
 
                 $orderTotal = 0;
 
-                foreach ($request->items as $itemData) {
+                foreach ($itemsData as $itemData) {
                     OrderItem::create([
                         'order_id' => $order->id,
                         'item_id' => $itemData['item_id'],
@@ -70,6 +74,7 @@ class OrderController extends Controller
                         'quantity' => $itemData['quantity'] ?? 1,
                     ]);
 
+                    // Update item status to Sold Out
                     Item::where('id', $itemData['item_id'])->update(['status' => 'Sold Out']);
 
                     $orderTotal += $itemData['price'] * ($itemData['quantity'] ?? 1);
@@ -77,7 +82,7 @@ class OrderController extends Controller
 
                 $order->update(['total' => $orderTotal]);
 
-                // Create payment record (unpaid by default)
+                // Create initial payment record (unpaid)
                 Payment::create([
                     'order_id' => $order->id,
                     'payment_status' => 'Unpaid',
@@ -90,6 +95,10 @@ class OrderController extends Controller
                     'total' => $orderTotal,
                     'status' => 'Draft',
                 ]);
+
+                // Clear cache after new order creation
+                Cache::forget('orderItems_cache');
+                Cache::forget($this->cacheKey);
 
                 return $order->load(['items', 'payment']);
             });
@@ -109,10 +118,11 @@ class OrderController extends Controller
     public function update(Request $request, Order $order)
     {
         try {
-            // Update customer info
-            $customerData = $request->customer;
+            $customerData = $request->input('customer');
+
             if ($customerData) {
                 $order->customer->update($customerData);
+
                 $order->update([
                     'first_name' => $customerData['first_name'],
                     'last_name' => $customerData['last_name'],
@@ -121,6 +131,8 @@ class OrderController extends Controller
                     'social_handle' => $customerData['social_handle'],
                 ]);
             }
+
+            Cache::forget($this->cacheKey);
 
             return response()->json([
                 'message' => 'Order updated',
@@ -138,8 +150,7 @@ class OrderController extends Controller
     {
         try {
             return DB::transaction(function () use ($request, $order) {
-
-                // Revert previous items to available
+                // Set previously ordered items back to available
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
                     if ($item) {
@@ -147,12 +158,12 @@ class OrderController extends Controller
                     }
                 }
 
-                // Delete previous order items
+                // Delete existing order items
                 $order->items()->delete();
 
                 $orderTotal = 0;
 
-                foreach ($request->items as $itemData) {
+                foreach ($request->input('items') as $itemData) {
                     OrderItem::create([
                         'order_id' => $order->id,
                         'item_id' => $itemData['item_id'],
@@ -161,6 +172,7 @@ class OrderController extends Controller
                         'quantity' => $itemData['quantity'] ?? 1,
                     ]);
 
+                    // Mark new items as sold out
                     Item::where('id', $itemData['item_id'])->update(['status' => 'Sold Out']);
 
                     $orderTotal += $itemData['price'] * ($itemData['quantity'] ?? 1);
@@ -168,10 +180,11 @@ class OrderController extends Controller
 
                 $order->update(['total' => $orderTotal]);
 
-                // Update invoice total
                 if ($order->invoice) {
                     $order->invoice->update(['total' => $orderTotal]);
                 }
+
+                Cache::forget($this->cacheKey);
 
                 return response()->json([
                     'message' => 'Order items updated successfully',
@@ -186,36 +199,11 @@ class OrderController extends Controller
         }
     }
 
-    //   public function updatePayment(Request $request, Payment $payment)
-    // {
-    //     try {
-    //         $payment->update($request->only([
-    //             'payment_status',
-    //             'payment_method',
-    //             'total_paid',
-    //             'payment_date'
-    //         ]));
-
-    //         if ($payment->payment_status === 'Paid' && $payment->order->invoice) {
-    //             $payment->order->invoice->update(['status' => 'Paid']);
-    //         }
-
-    //         return response()->json([
-    //             'message' => 'Payment updated successfully',
-    //             'payment' => $payment
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'error' => 'Failed to update payment',
-    //             'message' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     public function destroy(Order $order)
     {
         try {
-            if (! $order->payment || $order->payment->payment_status !== 'Paid') {
+            // Revert item statuses if payment not completed
+            if (!$order->payment || $order->payment->payment_status !== 'Paid') {
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
                     if ($item) {
@@ -224,23 +212,24 @@ class OrderController extends Controller
                 }
             }
 
-            // Delete order items
+            // Delete order-related data
             $order->items()->delete();
 
-            // Delete payment and invoice
             if ($order->payment) {
                 $order->payment->delete();
             }
+
             if ($order->invoice) {
                 $order->invoice->delete();
             }
 
-            // Delete order
             $order->delete();
+
+            Cache::forget($this->cacheKey);
 
             return response()->json(['message' => 'Order deleted successfully']);
         } catch (\Exception $e) {
-            \Log::error('Order delete failed: '.$e->getMessage());
+            \Log::error('Order delete failed: ' . $e->getMessage());
 
             return response()->json([
                 'error' => 'Failed to delete order',
