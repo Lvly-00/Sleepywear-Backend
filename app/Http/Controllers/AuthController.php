@@ -9,12 +9,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
+
 
 class AuthController extends Controller
 {
-    /**
-     * Login user and return API token (Bearer token)
-     */
+
     public function login(Request $request)
     {
         $this->checkTooManyFailedAttempts($request);
@@ -56,9 +56,7 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * Logout user (revoke current token)
-     */
+
     public function logout(Request $request)
     {
         $user = $request->user();
@@ -66,12 +64,12 @@ class AuthController extends Controller
             $user->currentAccessToken()->delete();
         }
 
+        Cache::flush();
+
         return response()->json(['message' => 'Logged out successfully']);
     }
 
-    /**
-     * Send password reset link
-     */
+
     public function forgotPassword(Request $request)
     {
         $request->validate(['email' => 'required|email']);
@@ -82,16 +80,9 @@ class AuthController extends Controller
             return response()->json(['message' => 'We can\'t find a user with that email.'], 404);
         }
 
-        // Generate reset token
         $token = Password::createToken($user);
-
-        // Generate reset token
         $token = Password::createToken($user);
-
-        // Build frontend reset URL (e.g., React page)
         $resetUrl = env('APP_FRONTEND_URL')."/reset-password?token={$token}&email=".urlencode($user->email);
-
-        // Send email via Brevo API
         $sent = BrevoMailer::sendResetLink($user->email, $resetUrl);
 
         if (! $sent) {
@@ -101,9 +92,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password reset link sent! Check your email.']);
     }
 
-    /**
-     * Reset password using token
-     */
+
   public function resetPassword(Request $request)
 {
     $request->validate([
@@ -112,11 +101,11 @@ class AuthController extends Controller
         'password' => [
             'required',
             'string',
-            'min:8',              // at least 8 characters
-            'regex:/[a-z]/',      // at least one lowercase letter
-            'regex:/[A-Z]/',      // at least one uppercase letter
-            'regex:/[0-9]/',      // at least one number
-            'regex:/[@$!%*#?&]/', // at least one special character
+            'min:8',
+            'regex:/[a-z]/',
+            'regex:/[A-Z]/',
+            'regex:/[0-9]/',
+            'regex:/[@$!%*#?&]/',
             'confirmed',
         ],
     ], [
@@ -145,7 +134,6 @@ class AuthController extends Controller
                 'password' => Hash::make($password),
             ])->save();
 
-            // Revoke all existing tokens after password reset
             $user->tokens()->delete();
         }
     );
