@@ -96,7 +96,6 @@ class OrderController extends Controller
                     'status' => 'Draft',
                 ]);
 
-                // Clear cache after new order creation
                 Cache::forget('orderItems_cache');
                 Cache::forget($this->cacheKey);
 
