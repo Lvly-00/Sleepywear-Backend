@@ -22,18 +22,15 @@ class InvoiceController extends Controller
             'order_id' => 'required|exists:orders,id',
             'status' => 'in:Draft,Paid',
             'total' => 'numeric|min:0',
-            'additional_fee' => 'nullable|numeric|min:0',
         ]);
 
         $order = Order::findOrFail($data['order_id']);
-        $additionalFee = $data['additional_fee'] ?? 0;
-        $grandTotal = $order->total + $additionalFee;
+        $grandTotal = $order->total;
 
         $invoice = Invoice::create([
             'order_id' => $order->id,
             'status' => $data['status'] ?? 'Draft',
             'total' => $grandTotal,
-            'additional_fee' => $additionalFee,
         ]);
 
         return response()->json([
@@ -53,17 +50,14 @@ class InvoiceController extends Controller
 
         $payment = $order->payment;
         $isPaid = $payment?->payment_status === 'Paid';
-        $additionalFee = $order->payment?->additional_fee ?? 0;
-        $grandTotal = $order->total + $additionalFee;
 
         $invoice->update([
             'status' => $isPaid ? 'Paid' : 'Draft',
-            'total' => $order->total + $additionalFee,
-            'additional_fee' => $additionalFee,
+            'total' => $order->total,
         ]);
 
         return response()->json([
-            'message' => 'Invoice status, total, and additional fee updated successfully',
+            'message' => 'Invoice status and total updated successfully',
             'invoice' => $invoice->fresh('order.items', 'order.payment'),
         ]);
     }
@@ -114,7 +108,6 @@ class InvoiceController extends Controller
                 $invoice->update([
                     'status' => 'Draft',
                     'total' => 0,
-                    'additional_fee' => 0,
                 ]);
             }
 

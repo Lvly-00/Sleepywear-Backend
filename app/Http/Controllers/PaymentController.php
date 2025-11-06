@@ -15,7 +15,6 @@ class PaymentController extends Controller
             'payment_method' => 'required|in:Cash,GCash,Paypal,Bank',
             'total' => 'required|numeric|min:0',
             'payment_status' => 'required|in:Unpaid,Paid',
-            'additional_fee' => 'nullable|numeric|min:0',
         ]);
 
         DB::beginTransaction();
@@ -30,21 +29,18 @@ class PaymentController extends Controller
                 'payment_status' => $data['payment_status'],
                 'total' => $data['total'],
                 'payment_date' => $data['payment_status'] === 'Paid' ? now() : null,
-                'additional_fee' => $data['additional_fee'] ?? 0,
             ]);
 
             // Mark items as sold if paid
             if ($payment->payment_status === 'Paid') {
                 $order->orderItems()->update(['status' => 'Sold Out']);
-                // Removed updateDashboardMetrics call here
             }
 
             // Update invoice total and status
             if ($order->invoice) {
-                $grandTotal = $order->total + ($payment->additional_fee ?? 0);
                 $order->invoice->update([
                     'status' => $payment->payment_status === 'Paid' ? 'Paid' : 'Draft',
-                    'total' => $grandTotal,
+                    'total' => $order->total, // only base total now
                 ]);
             }
 
