@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -16,9 +17,8 @@ class UserSettingsController extends Controller
     {
         $user = $request->user();
 
-        if (! $user) {
+        if (!$user) {
             Log::warning('Unauthenticated access attempt to user settings.');
-
             return response()->json(['message' => 'User not authenticated'], 401);
         }
 
@@ -31,7 +31,6 @@ class UserSettingsController extends Controller
             return response()->json($settings, 200);
         } catch (\Throwable $e) {
             Log::error('Error fetching user settings', ['error' => $e->getMessage()]);
-
             return response()->json(['message' => 'Failed to load user settings.'], 500);
         }
     }
@@ -43,13 +42,13 @@ class UserSettingsController extends Controller
     {
         $user = $request->user();
 
-        if (! $user) {
+        if (!$user) {
             return response()->json(['message' => 'User not authenticated'], 401);
         }
 
         $request->validate([
             'business_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,'.$user->id,
+            'email' => 'required|email|unique:users,email,' . $user->id,
         ]);
 
         try {
@@ -69,7 +68,6 @@ class UserSettingsController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             Log::error('Error updating profile', ['error' => $e->getMessage()]);
-
             return response()->json(['message' => 'Failed to update profile.'], 500);
         }
     }
@@ -81,28 +79,27 @@ class UserSettingsController extends Controller
     {
         $user = $request->user();
 
-        if (! $user) {
+        if (!$user) {
             return response()->json(['message' => 'User not authenticated'], 401);
         }
 
-        // Custom strong password regex validation rule
         $request->validate([
             'current_password' => 'required',
             'new_password' => [
                 'required',
-                'confirmed',          // automatically checks new_password_confirmation
+                'confirmed',
                 'min:8',
-                'regex:/[a-z]/',      // must contain at least one lowercase letter
-                'regex:/[A-Z]/',      // must contain at least one uppercase letter
-                'regex:/[0-9]/',      // must contain at least one digit
-                'regex:/[@$!%*?&#^()_+\-={}[\]|\\:;"\'<>,.\/~`]/', // at least one special char
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[@$!%*?&#^()_+\-={}[\]|\\:;"\'<>,.\/~`]/',
             ],
         ], [
             'new_password.regex' => 'Password must include uppercase, lowercase, number, and special character.',
             'new_password.min' => 'Password must be at least 8 characters.',
         ]);
 
-        if (! Hash::check($request->current_password, $user->password)) {
+        if (!Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['Current password is incorrect.'],
             ]);
@@ -112,12 +109,18 @@ class UserSettingsController extends Controller
             $user->password = Hash::make($request->new_password);
             $user->save();
 
-            Log::info('Password updated successfully', ['user_id' => $user->id]);
+            // Log out user to invalidate current session
+            Auth::logout();
 
-            return response()->json(['message' => 'Password updated successfully'], 200);
+            // Invalidate session if session-based auth
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            Log::info('Password updated and user logged out', ['user_id' => $user->id]);
+
+            return response()->json(['message' => 'Password updated successfully, logged out'], 200);
         } catch (\Throwable $e) {
             Log::error('Error updating password', ['error' => $e->getMessage()]);
-
             return response()->json(['message' => 'Failed to update password.'], 500);
         }
     }
