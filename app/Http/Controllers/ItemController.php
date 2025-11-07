@@ -4,30 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class ItemController extends Controller
 {
     public function index(Request $request)
-{
-    $collectionId = $request->query('collection_id');
+    {
+        $collectionId = $request->query('collection_id');
 
-    if (!$collectionId) {
-        return response()->json(['error' => 'collection_id is required'], 400);
-    }
+        if (!$collectionId) {
+            return response()->json(['error' => 'collection_id is required'], 400);
+        }
 
-    $cacheKey = "items_collection_{$collectionId}";
-    $ttl = now()->addMinutes(5);
+        $orderRaw = "CASE
+            WHEN status = 'Available' THEN 1
+            WHEN status = 'Sold Out' THEN 2
+            ELSE 3
+        END";
 
-    // Helper query to prioritize status
-    $orderRaw = "CASE
-        WHEN status = 'Available' THEN 1
-        WHEN status = 'Sold Out' THEN 2
-        ELSE 3
-    END";
-
-    if (Cache::has("skip_cache_{$collectionId}")) {
         $items = Item::where('collection_id', $collectionId)
             ->with('collection')
             ->orderByRaw("$orderRaw ASC")
@@ -43,23 +37,20 @@ class ItemController extends Controller
         return response()->json($items);
     }
 
-    $items = Cache::remember($cacheKey, $ttl, function () use ($collectionId, $orderRaw) {
-        return Item::where('collection_id', $collectionId)
-            ->with('collection')
-            ->orderByRaw("$orderRaw ASC")
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(function ($item) {
-                $item->collection_name = $item->collection?->name ?? 'N/A';
-                $item->is_available = $item->status === 'Available';
-                $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
-                return $item;
-            });
-    });
+    public function show($id)
+    {
+        $item = Item::with('collection')->find($id);
 
-    return response()->json($items);
-}
+        if (!$item) {
+            return response()->json(['message' => 'Item not found'], 404);
+        }
 
+        $item->collection_name = $item->collection?->name ?? 'N/A';
+        $item->is_available = $item->status === 'Available';
+        $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
+
+        return response()->json($item);
+    }
 
     public function store(Request $request)
     {
@@ -95,10 +86,6 @@ class ItemController extends Controller
             'image' => $path,
         ]);
 
-        // Invalidate cache for real-time update
-        Cache::forget("items_collection_{$collectionId}");
-        Cache::put("skip_cache_{$collectionId}", true, now()->addSeconds(5));
-
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = true;
@@ -115,9 +102,8 @@ class ItemController extends Controller
             'price' => 'required|numeric|min:0',
             'capital' => 'nullable|numeric|min:0',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'status' => 'nullable|string|in:Available,Sold Out',
         ]);
-
-        $oldCollectionId = $item->collection_id;
 
         if ($request->hasFile('image')) {
             if ($item->image && Storage::disk('public')->exists($item->image)) {
@@ -133,12 +119,8 @@ class ItemController extends Controller
             'name' => $validated['name'],
             'price' => $validated['price'],
             'capital' => $validated['capital'] ?? 0,
+            'status' => $validated['status'] ?? $item->status,
         ]);
-
-        // Clear cache for both collections
-        Cache::forget("items_collection_{$oldCollectionId}");
-        Cache::forget("items_collection_{$item->collection_id}");
-        Cache::put("skip_cache_{$item->collection_id}", true, now()->addSeconds(5));
 
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
@@ -150,18 +132,11 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
-        $collectionId = $item->collection_id;
-
-        // Delete the image if exists
         if ($item->image && Storage::disk('public')->exists($item->image)) {
             Storage::disk('public')->delete($item->image);
         }
 
         $item->delete();
-
-        Cache::forget("items_collection_{$collectionId}");
-        Cache::forget("item_{$item->id}");
-        Cache::put("skip_cache_{$collectionId}", true, now()->addSeconds(5));
 
         return response()->noContent();
     }

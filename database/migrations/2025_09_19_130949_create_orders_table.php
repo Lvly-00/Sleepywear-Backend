@@ -22,10 +22,6 @@ return new class extends Migration
             $table->timestamp('order_date')->useCurrent();
             $table->integer('total')->default(0);
 
-            // For dashboard tracking
-            $table->boolean('dashboard_updated')->default(false);
-            $table->decimal('previous_amount', 15, 2)->default(0);
-
             $table->timestamps();
         });
     }

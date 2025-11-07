@@ -5,13 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class UserSettingsController extends Controller
 {
     /**
-     * Show the authenticated user's settings, cached for 5 minutes.
+     * Show the authenticated user's settings.
      */
     public function show(Request $request)
     {
@@ -23,18 +22,12 @@ class UserSettingsController extends Controller
         }
 
         try {
-            $cacheKey = "user_settings_{$user->id}";
-            $ttl = 300; // 5 minutes
+            $settings = [
+                'business_name' => $user->business_name ?? '',
+                'email' => $user->email ?? '',
+            ];
 
-            $cachedSettings = Cache::remember($cacheKey, $ttl, function () use ($user) {
-                Log::info('Caching user settings', ['user_id' => $user->id]);
-                return [
-                    'business_name' => $user->business_name ?? '',
-                    'email' => $user->email ?? '',
-                ];
-            });
-
-            return response()->json($cachedSettings, 200);
+            return response()->json($settings, 200);
         } catch (\Throwable $e) {
             Log::error('Error fetching user settings', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Failed to load user settings.'], 500);
@@ -43,7 +36,6 @@ class UserSettingsController extends Controller
 
     /**
      * Update user's business name and email.
-     * Clears and refreshes the cache after update.
      */
     public function updateProfile(Request $request)
     {
@@ -64,17 +56,7 @@ class UserSettingsController extends Controller
                 'email' => $request->email,
             ]);
 
-            $cacheKey = "user_settings_{$user->id}";
-            $ttl = 300;
-
-            // Clear and refresh cache
-            Cache::forget($cacheKey);
-            Cache::put($cacheKey, [
-                'business_name' => $user->business_name,
-                'email' => $user->email,
-            ], $ttl);
-
-            Log::info('User profile updated & cache refreshed', ['user_id' => $user->id]);
+            Log::info('User profile updated', ['user_id' => $user->id]);
 
             return response()->json([
                 'message' => 'Profile updated successfully',
@@ -91,7 +73,6 @@ class UserSettingsController extends Controller
 
     /**
      * Update user's password.
-     * Clears settings cache to maintain data integrity.
      */
     public function updatePassword(Request $request)
     {
@@ -116,9 +97,7 @@ class UserSettingsController extends Controller
             $user->password = Hash::make($request->new_password);
             $user->save();
 
-            Cache::forget("user_settings_{$user->id}");
-
-            Log::info('Password updated & cache cleared', ['user_id' => $user->id]);
+            Log::info('Password updated successfully', ['user_id' => $user->id]);
 
             return response()->json(['message' => 'Password updated successfully'], 200);
         } catch (\Throwable $e) {

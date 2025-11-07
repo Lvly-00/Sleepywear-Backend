@@ -10,28 +10,22 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    // Cache key and TTL centralized for easy maintenance
-    protected $cacheKey = 'orders_list';
-    protected $cacheTTL = 300; // seconds (5 minutes)
-
     public function index()
     {
-        $orders = Cache::remember($this->cacheKey, $this->cacheTTL, function () {
-            return Order::with(['items', 'payment'])
-                ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($order) {
-                    $order->payment_image_url = $order->payment && $order->payment->payment_image
-                        ? asset('storage/' . $order->payment->payment_image)
-                        : null;
-                    return $order;
-                });
-        });
+        $orders = Order::with(['items', 'payment'])
+            ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($order) {
+                $order->payment_image_url = $order->payment && $order->payment->payment_image
+                    ? asset('storage/' . $order->payment->payment_image)
+                    : null;
+                return $order;
+            });
 
         return response()->json($orders);
     }
@@ -96,9 +90,6 @@ class OrderController extends Controller
                     'status' => 'Draft',
                 ]);
 
-                Cache::forget('orderItems_cache');
-                Cache::forget($this->cacheKey);
-
                 return $order->load(['items', 'payment']);
             });
         } catch (\Exception $e) {
@@ -131,8 +122,6 @@ class OrderController extends Controller
                 ]);
             }
 
-            Cache::forget($this->cacheKey);
-
             return response()->json([
                 'message' => 'Order updated',
                 'order' => $order->load(['items', 'payment']),
@@ -149,7 +138,7 @@ class OrderController extends Controller
     {
         try {
             return DB::transaction(function () use ($request, $order) {
-                // Set previously ordered items back to available
+                // Revert old items to available
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
                     if ($item) {
@@ -157,7 +146,7 @@ class OrderController extends Controller
                     }
                 }
 
-                // Delete existing order items
+                // Remove existing items
                 $order->items()->delete();
 
                 $orderTotal = 0;
@@ -183,8 +172,6 @@ class OrderController extends Controller
                     $order->invoice->update(['total' => $orderTotal]);
                 }
 
-                Cache::forget($this->cacheKey);
-
                 return response()->json([
                     'message' => 'Order items updated successfully',
                     'order' => $order->load(['items', 'payment']),
@@ -201,7 +188,7 @@ class OrderController extends Controller
     public function destroy(Order $order)
     {
         try {
-            // Revert item statuses if payment not completed
+            // Revert item statuses if unpaid
             if (!$order->payment || $order->payment->payment_status !== 'Paid') {
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
@@ -211,24 +198,16 @@ class OrderController extends Controller
                 }
             }
 
-            // Delete order-related data
+            // Delete related records
             $order->items()->delete();
-
-            if ($order->payment) {
-                $order->payment->delete();
-            }
-
-            if ($order->invoice) {
-                $order->invoice->delete();
-            }
+            if ($order->payment) $order->payment->delete();
+            if ($order->invoice) $order->invoice->delete();
 
             $order->delete();
 
-            Cache::forget($this->cacheKey);
-
             return response()->json(['message' => 'Order deleted successfully']);
         } catch (\Exception $e) {
-            \Log::error('Order delete failed: ' . $e->getMessage());
+            Log::error('Order delete failed: ' . $e->getMessage());
 
             return response()->json([
                 'error' => 'Failed to delete order',
