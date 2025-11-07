@@ -28,7 +28,8 @@ class CustomerController extends Controller
         }
 
         $customers = $query->get()->map(function ($customer) {
-            $customer->full_name = trim($customer->first_name . ' ' . $customer->last_name);
+            $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
+
             return $customer;
         })->sortBy('full_name')->values();
 
@@ -49,7 +50,7 @@ class CustomerController extends Controller
         ]);
 
         $customer = Customer::create($validated);
-        $customer->full_name = trim($customer->first_name . ' ' . $customer->last_name);
+        $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
 
         return response()->json($customer, 201);
     }
@@ -61,11 +62,11 @@ class CustomerController extends Controller
     {
         $customer = Customer::find($id);
 
-        if (!$customer) {
+        if (! $customer) {
             return response()->json(['message' => 'Customer not found'], 404);
         }
 
-        $customer->full_name = trim($customer->first_name . ' ' . $customer->last_name);
+        $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
 
         return response()->json($customer);
     }
@@ -84,7 +85,7 @@ class CustomerController extends Controller
         ]);
 
         $customer->update($validated);
-        $customer->full_name = trim($customer->first_name . ' ' . $customer->last_name);
+        $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
 
         return response()->json($customer);
     }

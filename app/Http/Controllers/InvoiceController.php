@@ -64,15 +64,27 @@ class InvoiceController extends Controller
 
     public function destroyInvoice($invoiceId)
     {
-        $invoice = Invoice::with('order.items')->findOrFail($invoiceId);
+        $invoice = Invoice::with('order.payment', 'order.items')->findOrFail($invoiceId);
 
         DB::beginTransaction();
         try {
             $order = $invoice->order;
+
             if ($order) {
+                $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
+
+                if ($isPaid) {
+                    // Paid order: Do NOT delete invoice or order
+                    return response()->json([
+                        'message' => 'Cannot delete invoice linked to a paid order.',
+                    ], 400);
+                }
+
+                // Unpaid order: revert items and delete order + invoice
                 foreach ($order->items as $item) {
                     $item->update(['status' => 'Available']);
                 }
+
                 $order->delete();
             }
 
@@ -80,7 +92,7 @@ class InvoiceController extends Controller
 
             DB::commit();
 
-            return response()->json(['message' => 'Invoice and linked order deleted successfully']);
+            return response()->json(['message' => 'Invoice and linked unpaid order deleted successfully']);
         } catch (\Throwable $e) {
             DB::rollBack();
 
@@ -93,27 +105,43 @@ class InvoiceController extends Controller
 
     public function destroyOrder($orderId)
     {
-        $order = Order::with('items', 'invoice')->findOrFail($orderId);
+        $order = Order::with('items', 'payment', 'invoice')->findOrFail($orderId);
 
         DB::beginTransaction();
         try {
-            foreach ($order->items as $item) {
-                $item->update(['status' => 'Available']);
+            $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
+
+            // Revert item status for unpaid only
+            if (! $isPaid) {
+                foreach ($order->items as $item) {
+                    $item->update(['status' => 'Available']);
+                }
             }
 
-            $invoice = $order->invoice;
-            $order->delete();
+            // Delete payment always if exists
+            if ($order->payment) {
+                $order->payment->delete();
+            }
 
-            if ($invoice) {
-                $invoice->update([
-                    'status' => 'Draft',
-                    'total' => 0,
-                ]);
+            if ($isPaid) {
+                // Paid order: keep invoice, just delete order and payment
+                $order->delete();
+
+                return response()->json(['message' => 'Paid order deleted; payment removed, invoice retained']);
+            } else {
+                // Unpaid order: delete order and invoice, reset invoice if exists
+                $invoice = $order->invoice;
+
+                $order->delete();
+
+                if ($invoice) {
+                    $invoice->delete();
+                }
+
+                return response()->json(['message' => 'Unpaid order and invoice deleted successfully']);
             }
 
             DB::commit();
-
-            return response()->json(['message' => 'Order deleted and invoice updated successfully']);
         } catch (\Throwable $e) {
             DB::rollBack();
 

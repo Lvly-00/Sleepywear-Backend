@@ -22,8 +22,12 @@ class OrderController extends Controller
             ->get()
             ->map(function ($order) {
                 $order->payment_image_url = $order->payment && $order->payment->payment_image
-                    ? asset('storage/' . $order->payment->payment_image)
+                    ? asset('storage/'.$order->payment->payment_image)
                     : null;
+
+                // Add formatted ID here
+                $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
                 return $order;
             });
 
@@ -90,7 +94,10 @@ class OrderController extends Controller
                     'status' => 'Draft',
                 ]);
 
-                return $order->load(['items', 'payment']);
+                $order->load(['items', 'payment']);
+                $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
+                return $order;
             });
         } catch (\Exception $e) {
             return response()->json([
@@ -102,7 +109,10 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        return response()->json($order->load(['items', 'payment']));
+        $order->load(['items', 'payment']);
+        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
+        return response()->json($order);
     }
 
     public function update(Request $request, Order $order)
@@ -122,9 +132,12 @@ class OrderController extends Controller
                 ]);
             }
 
+            $order->load(['items', 'payment']);
+            $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
             return response()->json([
                 'message' => 'Order updated',
-                'order' => $order->load(['items', 'payment']),
+                'order' => $order,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -172,9 +185,12 @@ class OrderController extends Controller
                     $order->invoice->update(['total' => $orderTotal]);
                 }
 
+                $order->load(['items', 'payment']);
+                $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
                 return response()->json([
                     'message' => 'Order items updated successfully',
-                    'order' => $order->load(['items', 'payment']),
+                    'order' => $order,
                 ]);
             });
         } catch (\Exception $e) {
@@ -188,8 +204,10 @@ class OrderController extends Controller
     public function destroy(Order $order)
     {
         try {
+            $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
+
             // Revert item statuses if unpaid
-            if (!$order->payment || $order->payment->payment_status !== 'Paid') {
+            if (! $isPaid) {
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
                     if ($item) {
@@ -198,16 +216,25 @@ class OrderController extends Controller
                 }
             }
 
-            // Delete related records
+            // Delete related order items
             $order->items()->delete();
-            if ($order->payment) $order->payment->delete();
-            if ($order->invoice) $order->invoice->delete();
 
+            // Delete payment always if exists
+            if ($order->payment) {
+                $order->payment->delete();
+            }
+
+            // Delete invoice only if unpaid or no payment
+            if (! $isPaid && $order->invoice) {
+                $order->invoice->delete();
+            }
+
+            // Delete the order itself
             $order->delete();
 
             return response()->json(['message' => 'Order deleted successfully']);
         } catch (\Exception $e) {
-            Log::error('Order delete failed: ' . $e->getMessage());
+            Log::error('Order delete failed: '.$e->getMessage());
 
             return response()->json([
                 'error' => 'Failed to delete order',

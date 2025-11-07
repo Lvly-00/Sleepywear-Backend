@@ -10,15 +10,18 @@ class CollectionController extends Controller
     private function ordinal($number)
     {
         $suffix = 'th';
-        if (!in_array(($number % 100), [11, 12, 13])) {
+        if (! in_array(($number % 100), [11, 12, 13])) {
             switch ($number % 10) {
-                case 1: $suffix = 'st'; break;
-                case 2: $suffix = 'nd'; break;
-                case 3: $suffix = 'rd'; break;
+                case 1: $suffix = 'st';
+                    break;
+                case 2: $suffix = 'nd';
+                    break;
+                case 3: $suffix = 'rd';
+                    break;
             }
         }
 
-        return $number . $suffix . ' Collection';
+        return $number.$suffix.' Collection';
     }
 
     public function index()
@@ -43,8 +46,12 @@ class CollectionController extends Controller
                 return $col;
             })
             ->sort(function ($a, $b) {
-                if ($a->status === 'Active' && $b->status !== 'Active') return -1;
-                if ($a->status !== 'Active' && $b->status === 'Active') return 1;
+                if ($a->status === 'Active' && $b->status !== 'Active') {
+                    return -1;
+                }
+                if ($a->status !== 'Active' && $b->status === 'Active') {
+                    return 1;
+                }
 
                 if ($a->status === 'Active' && $b->status === 'Active') {
                     return $b->created_at <=> $a->created_at;

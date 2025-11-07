@@ -18,9 +18,12 @@ class Order extends Model
         'social_handle',
         'order_date',
         'total',
-        'dashboard_updated', // newly added
-        'previous_amount',   // newly added
     ];
+
+    public function getFormattedIdAttribute()
+    {
+        return str_pad($this->id, 4, '0', STR_PAD_LEFT);
+    }
 
     // Relations
     public function customer()
