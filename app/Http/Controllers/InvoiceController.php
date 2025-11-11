@@ -10,11 +10,15 @@ use Illuminate\Support\Facades\DB;
 class InvoiceController extends Controller
 {
     public function show(Invoice $invoice)
-    {
-        $invoice->load(['order.items']);
+{
+    $invoice->load([
+        'order.items.item',
+        'order.payment',
+    ]);
 
-        return response()->json($invoice);
-    }
+    return response()->json($invoice);
+}
+
 
     public function store(Request $request)
     {
