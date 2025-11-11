@@ -10,7 +10,7 @@ return new class extends Migration
      * Run the migrations.
      */
 
-    public bool $withinTransaction = false;
+    public $withinTransaction = false;
     public function up(): void
     {
 
