@@ -4,12 +4,11 @@ set -e
 echo "Running storage link..."
 php artisan storage:link || true
 
-if [ "$APP_ENV" = "production" ]; then
-    echo "Running production migrations..."
-    php artisan migrate --force --seed
-else
-    echo "Running development migrations..."
-    php artisan migrate:fresh --force --seed
+echo "Running production migrations..."
+if ! php artisan migrate --force; then
+    echo "Migration failed. Dropping and recreating schema..."
+    php artisan db:wipe --force
+    php artisan migrate --force
 fi
 
 echo "Starting Laravel server on port 8000..."
