@@ -10,7 +10,7 @@ echo "Running storage link..."
 php artisan storage:link || true   # skip if already exists
 
 echo "Running migrations and seeding..."
-php artisan migrate:fresh --force
+php artisan migrate:fresh --force --seed
 
 # Start Laravel development server
 # Bind to 0.0.0.0 so it's accessible outside the container
