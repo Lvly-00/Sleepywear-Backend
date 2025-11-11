@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::get('/test-send-email', [AuthController::class, 'testSendEmail']);
 
 // Public logout route (for now we’ll protect it below)
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
@@ -29,7 +30,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 /*
 |--------------------------------------------------------------------------
 | Protected Routes (Require Bearer Token)
-|--------------------------------------------------------------------------
+|---------------------------------------------------------we-----------------
 */
 Route::middleware('auth:sanctum')->group(function () {
 

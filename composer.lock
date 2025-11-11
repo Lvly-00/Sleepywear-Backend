@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "37ed37b0e5bfa0746a464cf8cecb3f6d",
+    "content-hash": "98aa7b1a760c38f0767e28e6d20b6b8b",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -742,6 +742,60 @@
             "time": "2025-03-06T22:45:56+00:00"
         },
         {
+            "name": "evo-mark/evo-laravel-brevo",
+            "version": "v1.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/evo-mark/evo-laravel-brevo.git",
+                "reference": "146de4b4b3be65c862ad174f51bb66abf152aa94"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/evo-mark/evo-laravel-brevo/zipball/146de4b4b3be65c862ad174f51bb66abf152aa94",
+                "reference": "146de4b4b3be65c862ad174f51bb66abf152aa94",
+                "shasum": ""
+            },
+            "require": {
+                "getbrevo/brevo-php": "^2.0",
+                "illuminate/support": "^10.10.0|^11.0|^12.0",
+                "php": ">=8.2",
+                "symfony/mailer": "^6.4.12|^7.0",
+                "symfony/mime": "^6.4.12|^7.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "EvoMark\\EvoLaravelBrevo\\ServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "EvoMark\\EvoLaravelBrevo\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Craig Riley",
+                    "email": "c.riley@evomark.co.uk",
+                    "homepage": "https://evomark.co.uk",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Brevo Mail support for Laravel applications",
+            "homepage": "https://github.com/evo-mark/evo-laravel-brevo",
+            "support": {
+                "issues": "https://github.com/evo-mark/evo-laravel-brevo/issues",
+                "source": "https://github.com/evo-mark/evo-laravel-brevo/tree/v1.2.0"
+            },
+            "time": "2025-02-27T14:05:36+00:00"
+        },
+        {
             "name": "fruitcake/php-cors",
             "version": "v1.3.0",
             "source": {
@@ -811,6 +865,69 @@
                 }
             ],
             "time": "2023-10-12T05:21:21+00:00"
+        },
+        {
+            "name": "getbrevo/brevo-php",
+            "version": "v2.0.14",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/getbrevo/brevo-php.git",
+                "reference": "1abb1b75e06aa2ca3a6893d8e8d1968a8a76dc3f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/getbrevo/brevo-php/zipball/1abb1b75e06aa2ca3a6893d8e8d1968a8a76dc3f",
+                "reference": "1abb1b75e06aa2ca3a6893d8e8d1968a8a76dc3f",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "guzzlehttp/guzzle": "^7.4.0",
+                "php": ">=5.6"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "~1.12",
+                "phpunit/phpunit": "^4.8",
+                "squizlabs/php_codesniffer": "~2.6"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "1.x.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Brevo\\Client\\": "lib/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Brevo Developers",
+                    "email": "contact@brevo.com",
+                    "homepage": "https://www.brevo.com/"
+                }
+            ],
+            "description": "Official Brevo provided RESTFul API V3 php library",
+            "homepage": "https://github.com/getbrevo/brevo-php",
+            "keywords": [
+                "api",
+                "brevo",
+                "php",
+                "sdk",
+                "swagger"
+            ],
+            "support": {
+                "issues": "https://github.com/getbrevo/brevo-php/issues",
+                "source": "https://github.com/getbrevo/brevo-php/tree/v2.0.14"
+            },
+            "time": "2025-11-06T10:13:45+00:00"
         },
         {
             "name": "graham-campbell/result-type",

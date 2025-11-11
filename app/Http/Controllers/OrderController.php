@@ -25,7 +25,6 @@ class OrderController extends Controller
                     ? asset('storage/'.$order->payment->payment_image)
                     : null;
 
-                // Add formatted ID here
                 $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
 
                 return $order;
@@ -201,45 +200,51 @@ class OrderController extends Controller
         }
     }
 
-    public function destroy(Order $order)
-    {
-        try {
-            $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
+  public function destroy(Order $order)
+{
+    DB::beginTransaction();
 
-            // Revert item statuses if unpaid
-            if (! $isPaid) {
-                foreach ($order->items as $orderItem) {
-                    $item = $orderItem->item;
-                    if ($item) {
-                        $item->update(['status' => 'Available']);
-                    }
+    try {
+        $order->load('invoice', 'payment', 'items'); // ensure relationships are loaded
+        $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
+
+        if (! $isPaid) {
+            foreach ($order->items as $orderItem) {
+                $item = $orderItem->item;
+                if ($item) {
+                    $item->update(['status' => 'Available']);
                 }
             }
-
-            // Delete related order items
-            $order->items()->delete();
-
-            // Delete payment always if exists
-            if ($order->payment) {
-                $order->payment->delete();
-            }
-
-            // Delete invoice only if unpaid or no payment
-            if (! $isPaid && $order->invoice) {
+            // delete invoice if unpaid
+            if ($order->invoice) {
                 $order->invoice->delete();
             }
-
-            // Delete the order itself
-            $order->delete();
-
-            return response()->json(['message' => 'Order deleted successfully']);
-        } catch (\Exception $e) {
-            Log::error('Order delete failed: '.$e->getMessage());
-
-            return response()->json([
-                'error' => 'Failed to delete order',
-                'message' => $e->getMessage(),
-            ], 500);
         }
+
+        $order->items()->delete();
+
+        if ($order->payment) {
+            $order->payment->delete();
+        }
+
+        $order->delete(); // now safe, invoice is already handled
+
+        DB::commit();
+
+        return response()->json([
+            'message' => $isPaid
+                ? 'Paid order deleted; payment removed, invoice retained'
+                : 'Unpaid order and invoice deleted successfully'
+        ]);
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        Log::error('Order deletion failed: '.$e->getMessage());
+
+        return response()->json([
+            'error' => 'Failed to delete order',
+            'message' => $e->getMessage(),
+        ], 500);
     }
+}
+
 }
