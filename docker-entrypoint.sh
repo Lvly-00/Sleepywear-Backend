@@ -1,18 +1,16 @@
 #!/bin/bash
 set -e
 
-# ------------------------------
-# Laravel container startup script
-# ------------------------------
-
-# Run Laravel commands
 echo "Running storage link..."
-php artisan storage:link || true   # skip if already exists
+php artisan storage:link || true
 
-echo "Running migrations and seeding..."
-php artisan migrate:fresh --force --seed
+if [ "$APP_ENV" = "production" ]; then
+    echo "Running production migrations..."
+    php artisan migrate --force --seed
+else
+    echo "Running development migrations..."
+    php artisan migrate:fresh --force --seed
+fi
 
-# Start Laravel development server
-# Bind to 0.0.0.0 so it's accessible outside the container
 echo "Starting Laravel server on port 8000..."
 exec php artisan serve --host=0.0.0.0 --port=8000
