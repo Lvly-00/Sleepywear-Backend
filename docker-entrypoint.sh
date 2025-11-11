@@ -5,15 +5,6 @@ set -e
 # Laravel container startup script
 # ------------------------------
 
-# Ensure SQLite database file exists
-DB_PATH="database/database.sqlite"
-if [ ! -f "$DB_PATH" ]; then
-    echo "Creating SQLite database file..."
-    mkdir -p database
-    touch "$DB_PATH"
-    chmod 777 "$DB_PATH"
-fi
-
 # Run Laravel commands
 echo "Running storage link..."
 php artisan storage:link || true   # skip if already exists

@@ -3,7 +3,7 @@ FROM php:8.2-fpm
 
 WORKDIR /var/www
 
-# Install system dependencies
+# Install system dependencies and PostgreSQL extensions
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nano \
     libzip-dev \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
+    libpq-dev \
+    && docker-php-ext-install pdo_pgsql pgsql mbstring exif pcntl bcmath gd zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
