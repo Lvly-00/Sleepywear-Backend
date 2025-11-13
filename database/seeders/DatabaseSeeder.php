@@ -38,7 +38,7 @@ class DatabaseSeeder extends Seeder
         }
 
         // ─── Seed 100 Collections ─────────────────────────────────
-        for ($i = 1; $i <= 1; $i++) {
+        for ($i = 1; $i <= 50; $i++) {
             $collection = Collection::create([
                 'name' => $this->ordinal($i) . ' Collection', // e.g. 1st Collection
                 'release_date' => Carbon::now()->subDays(rand(0, 365)),
@@ -51,8 +51,8 @@ class DatabaseSeeder extends Seeder
 
         // ─── Seed 70 Items per Collection ──────────────────────
                 $itemsData = [];
-                for ($j = 1; $j <= 20; $j++) {
-                    $itemCode = sprintf('%d%02d', $i, $j); // e.g. 101, 102, 103...
+                for ($j = 1; $j <= 120; $j++) {
+                    $itemCode = sprintf('%03d%03d', $i, $j); // e.g. 101, 102, 103...
 
                     $itemsData[] = [
                         'collection_id' => $collection->id,

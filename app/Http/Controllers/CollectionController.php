@@ -24,42 +24,28 @@ class CollectionController extends Controller
         return $number.$suffix.' Collection';
     }
 
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->input('per_page', 10);
         $collections = Collection::with('items')
-            ->get()
-            ->map(function ($col) {
-                if (is_numeric($col->name)) {
-                    $col->name = $this->ordinal($col->name);
-                }
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
 
-                $col->stock_qty = $col->items->sum('stock_qty');
-                $col->qty = $col->items->count();
-                $col->total_sales = $col->items
-                    ->where('status', 'Sold Out')
-                    ->sum('price');
-                $col->capital = $col->capital ?? 0;
-                $col->status = $col->items->where('status', 'Available')->count() > 0
-                    ? 'Active'
-                    : 'Sold Out';
+        $collections->getCollection()->transform(function ($col) {
+            if (is_numeric($col->name)) {
+                $col->name = $this->ordinal($col->name);
+            }
 
-                return $col;
-            })
-            ->sort(function ($a, $b) {
-                if ($a->status === 'Active' && $b->status !== 'Active') {
-                    return -1;
-                }
-                if ($a->status !== 'Active' && $b->status === 'Active') {
-                    return 1;
-                }
+            $col->stock_qty = $col->items->sum('stock_qty');
+            $col->qty = $col->items->count();
+            $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
+            $col->capital = $col->capital ?? 0;
+            $col->status = $col->items->where('status', 'Available')->count() > 0
+                ? 'Active'
+                : 'Sold Out';
 
-                if ($a->status === 'Active' && $b->status === 'Active') {
-                    return $b->created_at <=> $a->created_at;
-                }
-
-                return $a->updated_at <=> $b->updated_at;
-            })
-            ->values();
+            return $col;
+        });
 
         return response()->json($collections);
     }
