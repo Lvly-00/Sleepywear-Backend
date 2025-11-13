@@ -11,30 +11,36 @@ class CustomerController extends Controller
      * Display a listing of customers.
      * Supports optional search filtering.
      */
-    public function index(Request $request)
-    {
-        $query = Customer::query();
+ public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search');
 
-        $search = $request->query('search');
+    $query = Customer::query()->orderBy('first_name');
 
-        if ($search) {
-            $searchLower = strtolower($search);
-            $query->where(function ($q) use ($searchLower) {
-                $q->whereRaw('LOWER(first_name) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(contact_number) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(social_handle) LIKE ?', ["%{$searchLower}%"]);
-            });
-        }
-
-        $customers = $query->get()->map(function ($customer) {
-            $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
-
-            return $customer;
-        })->sortBy('full_name')->values();
-
-        return response()->json($customers);
+    if ($search) {
+        $searchLower = strtolower($search);
+        $query->where(function ($q) use ($searchLower) {
+            $q->whereRaw('LOWER(first_name) LIKE ?', ["%{$searchLower}%"])
+              ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$searchLower}%"])
+              ->orWhereRaw('LOWER(contact_number) LIKE ?', ["%{$searchLower}%"])
+              ->orWhereRaw('LOWER(social_handle) LIKE ?', ["%{$searchLower}%"]);
+        });
     }
+
+    $customers = $query->paginate($perPage);
+
+    // Add full_name attribute to each customer in the current page collection
+    $customers->getCollection()->transform(function ($customer) {
+        $customer->full_name = trim($customer->first_name . ' ' . $customer->last_name);
+        return $customer;
+    });
+
+    return response()->json($customers);
+}
+
+
+
 
     /**
      * Store a newly created customer.
