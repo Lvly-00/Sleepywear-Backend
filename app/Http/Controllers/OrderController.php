@@ -14,24 +14,32 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    public function index()
-    {
-        $orders = Order::with(['items', 'payment'])
-            ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($order) {
-                $order->payment_image_url = $order->payment && $order->payment->payment_image
-                    ? asset('storage/'.$order->payment->payment_image)
-                    : null;
+    public function index(Request $request)
+{
+    $perPage = 10; // 10 orders per page
+    $page = $request->query('page', 1);
 
-                $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+    // Paginate orders
+    $ordersQuery = Order::with(['items', 'payment'])
+        ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
+        ->orderBy('created_at', 'desc');
 
-                return $order;
-            });
+    $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page);
 
-        return response()->json($orders);
-    }
+    // Format each order
+    $orders->getCollection()->transform(function ($order) {
+        $order->payment_image_url = $order->payment && $order->payment->payment_image
+            ? asset('storage/' . $order->payment->payment_image)
+            : null;
+
+        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
+        return $order;
+    });
+
+    return response()->json($orders);
+}
+
 
     public function store(Request $request)
     {
