@@ -14,30 +14,19 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-   public function index(Request $request)
+    public function index(Request $request)
 {
-    $perPage = $request->input('per_page', 10);
+    $perPage = 2; // 10 orders per page
     $page = $request->query('page', 1);
-    $search = $request->input('search'); // get search term
 
-    // Base query with items and payment
+    // Paginate orders
     $ordersQuery = Order::with(['items', 'payment'])
         ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
         ->orderBy('created_at', 'desc');
 
-    // 🔍 Apply search filter if present
-    if ($search) {
-        $ordersQuery->where(function ($q) use ($search) {
-            $q->where('first_name', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhere('id', $search); // exact match for order ID
-        });
-    }
-
-    // Paginate
     $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page);
 
-    // Transform each order
+    // Format each order
     $orders->getCollection()->transform(function ($order) {
         $order->payment_image_url = $order->payment && $order->payment->payment_image
             ? asset('storage/' . $order->payment->payment_image)
@@ -45,16 +34,11 @@ class OrderController extends Controller
 
         $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
 
-        // Calculate total quantity and price
-        $order->total_qty = $order->items->sum('quantity');
-        $order->total_price = $order->total ?? $order->items->sum(fn($i) => $i->price * $i->quantity);
-
         return $order;
     });
 
     return response()->json($orders);
 }
-
 
 
     public function store(Request $request)
