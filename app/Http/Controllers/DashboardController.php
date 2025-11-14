@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Collection;
-use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +18,9 @@ class DashboardController extends Controller
                 ->where('payments.payment_status', 'Paid')
                 ->sum(DB::raw('order_items.price * order_items.quantity'));
 
-            // 2. Total Capital (used as COGS substitute)
+            // 2. Total Capital
             $totalCapital = Collection::sum('capital');
+
             // 3. Gross Income
             $grossIncome = $totalRevenue;
 
@@ -34,13 +34,13 @@ class DashboardController extends Controller
                 ->sum('order_items.quantity');
 
             // 6. Total Customers
-            $totalCustomers = Order::join('payments', 'orders.id', '=', 'payments.order_id')
+            $totalCustomers = \App\Models\Order::join('payments', 'orders.id', '=', 'payments.order_id')
                 ->where('payments.payment_status', 'Paid')
                 ->whereNotNull('orders.customer_id')
                 ->distinct()
                 ->count('orders.customer_id');
 
-            // 7. Collection Sales
+            // 7. Collection Sales (aggregate)
             $collectionSales = Collection::leftJoin('items', 'collections.id', '=', 'items.collection_id')
                 ->leftJoin('order_items', 'items.id', '=', 'order_items.item_id')
                 ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
@@ -56,6 +56,43 @@ class DashboardController extends Controller
                     ];
                 });
 
+            // 8. Daily sales per collection (for chart)
+            $dailySales = [];
+            $collections = Collection::all();
+
+            foreach ($collections as $collection) {
+                // Get sales grouped by date
+                $salesByDate = OrderItem::join('items', 'order_items.item_id', '=', 'items.id')
+                    ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                    ->join('payments', 'payments.order_id', '=', 'orders.id')
+                    ->where('items.collection_id', $collection->id)
+                    ->where('payments.payment_status', 'Paid')
+                    ->select(
+                        DB::raw('DATE(orders.created_at) as date'),
+                        DB::raw('SUM(order_items.price * order_items.quantity) as total_sales')
+                    )
+                    ->groupBy(DB::raw('DATE(orders.created_at)'))
+                    ->get();
+
+                foreach ($salesByDate as $sale) {
+                    $dailySales[$sale->date][$collection->name] = round($sale->total_sales);
+                }
+            }
+
+            // Fill missing collection sales with 0 for each date
+            $allDates = array_keys($dailySales);
+            foreach ($allDates as $date) {
+                foreach ($collections as $collection) {
+                    if (!isset($dailySales[$date][$collection->name])) {
+                        $dailySales[$date][$collection->name] = 0;
+                    }
+                }
+                $dailySales[$date]['date'] = $date; // Add date key for chart
+            }
+
+            // Convert associative array to indexed array
+            $dailySalesArray = array_values($dailySales);
+
             return response()->json([
                 'totalRevenue' => round($totalRevenue),
                 'grossIncome' => round($grossIncome),
@@ -63,6 +100,7 @@ class DashboardController extends Controller
                 'totalItemsSold' => (int) $totalItemsSold,
                 'totalCustomers' => (int) $totalCustomers,
                 'collectionSales' => $collectionSales,
+                'dailySales' => $dailySalesArray, // for line chart
             ]);
 
         } catch (\Exception $e) {
