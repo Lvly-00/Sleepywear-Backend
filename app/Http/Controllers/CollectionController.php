@@ -24,39 +24,39 @@ class CollectionController extends Controller
         return $number.$suffix.' Collection';
     }
 
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search'); // 👈 new search query
+  public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search');
 
-        $query = Collection::with('items')->orderByDesc('created_at');
+    $query = Collection::with('items')->orderByDesc('created_at');
 
-        // 🔍 Apply search filter if present
-        if ($search) {
-            $query->where('name', 'like', "%{$search}%");
+    if ($search) {
+        $query->where('name', 'like', "%{$search}%");
+    }
+
+    $collections = $query->paginate($perPage);
+
+    // Transform data (same as before)
+    $collections->getCollection()->transform(function ($col) {
+        if (is_numeric($col->name)) {
+            $col->name = $this->ordinal($col->name);
         }
 
-        $collections = $query->paginate($perPage);
+        $col->stock_qty = $col->items->sum('stock_qty');
+        $col->qty = $col->items->count();
+        $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
+        $col->capital = $col->capital ?? 0;
+        $col->status = $col->items->where('status', 'Available')->count() > 0
+            ? 'Active'
+            : 'Sold Out';
 
-        // Transform data (same as before)
-        $collections->getCollection()->transform(function ($col) {
-            if (is_numeric($col->name)) {
-                $col->name = $this->ordinal($col->name);
-            }
+        return $col;
+    });
 
-            $col->stock_qty = $col->items->sum('stock_qty');
-            $col->qty = $col->items->count();
-            $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
-            $col->capital = $col->capital ?? 0;
-            $col->status = $col->items->where('status', 'Available')->count() > 0
-                ? 'Active'
-                : 'Sold Out';
+    return response()->json($collections);
+}
 
-            return $col;
-        });
-
-        return response()->json($collections);
-    }
 
     public function store(Request $request)
     {
