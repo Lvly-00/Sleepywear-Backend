@@ -72,7 +72,7 @@ class PaymentController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            \Log::error('Payment save failed: ' . $e->getMessage(), [
+            \Log::error('Payment save failed: '.$e->getMessage(), [
                 'order_id' => $orderId,
                 'trace' => $e->getTraceAsString(),
             ]);

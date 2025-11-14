@@ -15,10 +15,10 @@ class DashboardController extends Controller
             // ───────────────────────────────────────────────
             // TOTALS from CollectionSalesSummary table
             // ───────────────────────────────────────────────
-            $totalRevenue   = CollectionSalesSummary::sum('total_sales');
+            $totalRevenue = CollectionSalesSummary::sum('total_sales');
             $totalItemsSold = CollectionSalesSummary::sum('total_items_sold');
             $totalCustomers = CollectionSalesSummary::sum('total_customers');
-            $grossIncome    = $totalRevenue;
+            $grossIncome = $totalRevenue;
 
             // ───────────────────────────────────────────────
             // NET INCOME = sum of unique collection_capital
@@ -30,7 +30,7 @@ class DashboardController extends Controller
 
             $netIncome = $summaryCapital;
 
-                   // ───────────────────────────────────────────────
+            // ───────────────────────────────────────────────
             // COLLECTION SALES using leftJoin (your logic)
             // ───────────────────────────────────────────────
             $collectionSales = Collection::leftJoin('items', 'collections.id', '=', 'items.collection_id')
@@ -66,7 +66,7 @@ class DashboardController extends Controller
 
             // Fetch orders with items and collections for current month
             $orders = Order::whereMonth('created_at', now()->month)
-                ->whereHas('payment', function($q){
+                ->whereHas('payment', function ($q) {
                     $q->where('payment_status', 'Paid');
                 })
                 ->with('orderItems.item.collection')
@@ -90,23 +90,22 @@ class DashboardController extends Controller
             // RETURN JSON
             // ───────────────────────────────────────────────
             return response()->json([
-                'totalRevenue'    => round($totalRevenue),
-                'grossIncome'     => round($grossIncome),
-                'netIncome'       => round($netIncome),
-                'totalItemsSold'  => (int) $totalItemsSold,
-                'totalCustomers'  => (int) $totalCustomers,
+                'totalRevenue' => round($totalRevenue),
+                'grossIncome' => round($grossIncome),
+                'netIncome' => round($netIncome),
+                'totalItemsSold' => (int) $totalItemsSold,
+                'totalCustomers' => (int) $totalCustomers,
                 'collectionSales' => $collectionSales,
-                'dailySales'      => $chartData,
+                'dailySales' => $chartData,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Dashboard summary error: '.$e->getMessage());
+
             return response()->json(['message' => 'Server Error'], 500);
         }
     }
 }
-
-
 
 // <?php
 

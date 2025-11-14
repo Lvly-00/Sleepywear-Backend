@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Collection;
 use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -84,20 +85,30 @@ class ItemController extends Controller
 
         $collectionId = $validated['collection_id'];
 
-        $lastItem = Item::where('collection_id', $collectionId)
+        $collection = Collection::findOrFail($validated['collection_id']);
+
+        // Extract the first number from the collection name
+        preg_match('/\d+/', $collection->name, $matches);
+        $collectionNumber = str_pad($matches[0] ?? $collection->id, 2, '0', STR_PAD_LEFT);
+
+        // Get the last item in this collection to increment the item number
+        $lastItem = Item::where('collection_id', $collection->id)
             ->orderByDesc('id')
             ->first();
 
+        // Next item number
         $nextNumber = $lastItem
-            ? intval(substr($lastItem->code, strlen($collectionId))) + 1
+            ? intval(substr($lastItem->code, 3)) + 1 // take part after '09-'
             : 1;
 
-        $code = $collectionId.str_pad($nextNumber, 2, '0', STR_PAD_LEFT);
+        // Format item code as 09-001
+        $code = $collectionNumber.'-'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
+        // Save item
         $path = $request->file('image')->store('items', 'public');
 
         $item = Item::create([
-            'collection_id' => $collectionId,
+            'collection_id' => $collection->id,
             'code' => $code,
             'name' => $validated['name'],
             'price' => $validated['price'],
