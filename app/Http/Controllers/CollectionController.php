@@ -26,33 +26,33 @@ class CollectionController extends Controller
 
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search');
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search');
 
-        $query = Collection::with('items')->orderBy('id', 'asc'); // initial id order
+    $query = Collection::with('items')->orderBy('id', 'asc');
 
-        if ($search) {
-            $query->where('name', 'like', "%{$search}%");
+    if ($search) {
+        $query->where('name', 'like', "%{$search}%");
+    }
+
+    $collections = $query->paginate($perPage);
+
+    // Transform data
+    $collections->getCollection()->transform(function ($col) {
+        if (is_numeric($col->name)) {
+            $col->name = $this->ordinal($col->name);
         }
 
-        $collections = $query->paginate($perPage);
+        $col->stock_qty = $col->items->sum('stock_qty');
+        $col->qty = $col->items->count();
+        $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
+        $col->capital = $col->capital ?? 0;
+        $col->status = $col->items->where('status', 'Available')->count() > 0
+            ? 'Active'
+            : 'Sold Out';
 
-        // Transform data
-        $collections->getCollection()->transform(function ($col) {
-            if (is_numeric($col->name)) {
-                $col->name = $this->ordinal($col->name);
-            }
-
-            $col->stock_qty = $col->items->sum('stock_qty');
-            $col->qty = $col->items->count();
-            $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
-            $col->capital = $col->capital ?? 0;
-            $col->status = $col->items->where('status', 'Available')->count() > 0
-                ? 'Active'
-                : 'Sold Out';
-
-            return $col;
-        });
+        return $col;
+    });
 
         return response()->json($collections);
     }
