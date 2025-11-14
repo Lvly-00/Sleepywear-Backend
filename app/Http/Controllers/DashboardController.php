@@ -6,49 +6,41 @@ use App\Models\Collection;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function summary()
     {
         try {
-            //  Total Revenue = sum of all paid order items
+            // 1. Total Revenue
             $totalRevenue = OrderItem::join('orders', 'order_items.order_id', '=', 'orders.id')
                 ->join('payments', 'payments.order_id', '=', 'orders.id')
                 ->where('payments.payment_status', 'Paid')
-                ->sum(\DB::raw('order_items.price * order_items.quantity'));
+                ->sum(DB::raw('order_items.price * order_items.quantity'));
 
-            // Cost of Goods Sold (COGS)
-            $cogs = OrderItem::join('items', 'order_items.item_id', '=', 'items.id')
-                ->join('collections', 'items.collection_id', '=', 'collections.id')
-                ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->join('payments', 'payments.order_id', '=', 'orders.id')
-                ->where('payments.payment_status', 'Paid')
-                ->sum(\DB::raw('(collections.capital / NULLIF(collections.qty, 0)) * order_items.quantity'));
+            // 2. Total Capital (used as COGS substitute)
+            $totalCapital = Collection::sum('capital');
+            // 3. Gross Income
+            $grossIncome = $totalRevenue;
 
-            //  Gross Income = Total Revenue - COGS
-            $grossIncome = $totalRevenue - $cogs;
+            // 4. Net Income (no business expense tracking)
+            $netIncome = $totalCapital;
 
-            //  Business Expenses
-        $totalCapital = Collection::sum('capital');
-
-            //  Net Income = Gross Income - Business Expenses
-            $netIncome = $totalCapital -  $grossIncome ;
-
-            //  Total Items Sold
+            // 5. Total Items Sold
             $totalItemsSold = OrderItem::join('orders', 'order_items.order_id', '=', 'orders.id')
                 ->join('payments', 'payments.order_id', '=', 'orders.id')
                 ->where('payments.payment_status', 'Paid')
                 ->sum('order_items.quantity');
 
-            //  Total Customers
+            // 6. Total Customers
             $totalCustomers = Order::join('payments', 'orders.id', '=', 'payments.order_id')
                 ->where('payments.payment_status', 'Paid')
                 ->whereNotNull('orders.customer_id')
                 ->distinct()
                 ->count('orders.customer_id');
 
-            //  Collection Sales
+            // 7. Collection Sales
             $collectionSales = Collection::leftJoin('items', 'collections.id', '=', 'items.collection_id')
                 ->leftJoin('order_items', 'items.id', '=', 'order_items.item_id')
                 ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
@@ -64,14 +56,6 @@ class DashboardController extends Controller
                     ];
                 });
 
-            // Log summary
-            // Log::info('Dashboard summary data:', [
-            //     'totalRevenue' => $totalRevenue,
-            //     'grossIncome' => $grossIncome,
-            //     'netIncome' => $netIncome,
-            //     'totalCustomers' => $totalCustomers,
-            // ]);
-
             return response()->json([
                 'totalRevenue' => round($totalRevenue),
                 'grossIncome' => round($grossIncome),
@@ -82,7 +66,7 @@ class DashboardController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Dashboard summary error: '.$e->getMessage());
+            Log::error('Dashboard summary error: ' . $e->getMessage());
 
             return response()->json(['message' => 'Server Error'], 500);
         }
