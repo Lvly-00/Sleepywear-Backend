@@ -15,31 +15,30 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     public function index(Request $request)
-{
-    $perPage = 2; // 10 orders per page
-    $page = $request->query('page', 1);
+    {
+        $perPage = 10; // 10 orders per page
+        $page = $request->query('page', 1);
 
-    // Paginate orders
-    $ordersQuery = Order::with(['items', 'payment'])
-        ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
-        ->orderBy('created_at', 'desc');
+        // Paginate orders
+        $ordersQuery = Order::with(['items', 'payment'])
+            ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc');
 
-    $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page);
+        $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page);
 
-    // Format each order
-    $orders->getCollection()->transform(function ($order) {
-        $order->payment_image_url = $order->payment && $order->payment->payment_image
-            ? asset('storage/' . $order->payment->payment_image)
-            : null;
+        // Format each order
+        $orders->getCollection()->transform(function ($order) {
+            $order->payment_image_url = $order->payment && $order->payment->payment_image
+                ? asset('storage/'.$order->payment->payment_image)
+                : null;
 
-        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+            $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
 
-        return $order;
-    });
+            return $order;
+        });
 
-    return response()->json($orders);
-}
-
+        return response()->json($orders);
+    }
 
     public function store(Request $request)
     {
@@ -208,51 +207,50 @@ class OrderController extends Controller
         }
     }
 
-  public function destroy(Order $order)
-{
-    DB::beginTransaction();
+    public function destroy(Order $order)
+    {
+        DB::beginTransaction();
 
-    try {
-        $order->load('invoice', 'payment', 'items'); // ensure relationships are loaded
-        $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
+        try {
+            $order->load('invoice', 'payment', 'items'); // ensure relationships are loaded
+            $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
 
-        if (! $isPaid) {
-            foreach ($order->items as $orderItem) {
-                $item = $orderItem->item;
-                if ($item) {
-                    $item->update(['status' => 'Available']);
+            if (! $isPaid) {
+                foreach ($order->items as $orderItem) {
+                    $item = $orderItem->item;
+                    if ($item) {
+                        $item->update(['status' => 'Available']);
+                    }
+                }
+                // delete invoice if unpaid
+                if ($order->invoice) {
+                    $order->invoice->delete();
                 }
             }
-            // delete invoice if unpaid
-            if ($order->invoice) {
-                $order->invoice->delete();
+
+            $order->items()->delete();
+
+            if ($order->payment) {
+                $order->payment->delete();
             }
+
+            $order->delete(); // now safe, invoice is already handled
+
+            DB::commit();
+
+            return response()->json([
+                'message' => $isPaid
+                    ? 'Paid order deleted; payment removed, invoice retained'
+                    : 'Unpaid order and invoice deleted successfully',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Order deletion failed: '.$e->getMessage());
+
+            return response()->json([
+                'error' => 'Failed to delete order',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        $order->items()->delete();
-
-        if ($order->payment) {
-            $order->payment->delete();
-        }
-
-        $order->delete(); // now safe, invoice is already handled
-
-        DB::commit();
-
-        return response()->json([
-            'message' => $isPaid
-                ? 'Paid order deleted; payment removed, invoice retained'
-                : 'Unpaid order and invoice deleted successfully'
-        ]);
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        Log::error('Order deletion failed: '.$e->getMessage());
-
-        return response()->json([
-            'error' => 'Failed to delete order',
-            'message' => $e->getMessage(),
-        ], 500);
     }
-}
-
 }

@@ -3,44 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Collection;
-use App\Models\OrderItem;
+use App\Models\CollectionSalesSummary;
+use App\Models\Order;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function summary()
     {
         try {
-            // 1. Total Revenue
-            $totalRevenue = OrderItem::join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->join('payments', 'payments.order_id', '=', 'orders.id')
-                ->where('payments.payment_status', 'Paid')
-                ->sum(DB::raw('order_items.price * order_items.quantity'));
+            // ───────────────────────────────────────────────
+            // TOTALS from CollectionSalesSummary table
+            // ───────────────────────────────────────────────
+            $totalRevenue   = CollectionSalesSummary::sum('total_sales');
+            $totalItemsSold = CollectionSalesSummary::sum('total_items_sold');
+            $totalCustomers = CollectionSalesSummary::sum('total_customers');
+            $grossIncome    = $totalRevenue;
 
-            // 2. Total Capital
-            $totalCapital = Collection::sum('capital');
+            // ───────────────────────────────────────────────
+            // NET INCOME = sum of unique collection_capital
+            // ───────────────────────────────────────────────
+            $summaryCapital = CollectionSalesSummary::select('collection_id', 'collection_capital')
+                ->groupBy('collection_id', 'collection_capital')
+                ->get()
+                ->sum('collection_capital');
 
-            // 3. Gross Income
-            $grossIncome = $totalRevenue;
+            $netIncome = $summaryCapital;
 
-            // 4. Net Income (no business expense tracking)
-            $netIncome = $totalCapital;
-
-            // 5. Total Items Sold
-            $totalItemsSold = OrderItem::join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->join('payments', 'payments.order_id', '=', 'orders.id')
-                ->where('payments.payment_status', 'Paid')
-                ->sum('order_items.quantity');
-
-            // 6. Total Customers
-            $totalCustomers = \App\Models\Order::join('payments', 'orders.id', '=', 'payments.order_id')
-                ->where('payments.payment_status', 'Paid')
-                ->whereNotNull('orders.customer_id')
-                ->distinct()
-                ->count('orders.customer_id');
-
-            // 7. Collection Sales (aggregate)
+                   // ───────────────────────────────────────────────
+            // COLLECTION SALES using leftJoin (your logic)
+            // ───────────────────────────────────────────────
             $collectionSales = Collection::leftJoin('items', 'collections.id', '=', 'items.collection_id')
                 ->leftJoin('order_items', 'items.id', '=', 'order_items.item_id')
                 ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
@@ -56,57 +48,175 @@ class DashboardController extends Controller
                     ];
                 });
 
-            // 8. Daily sales per collection (for chart)
+            // ───────────────────────────────────────────────
+            // DAILY SALES for chart
+            // ───────────────────────────────────────────────
+            $collections = Collection::pluck('name')->toArray();
+            $monthDays = now()->daysInMonth;
+
+            // Initialize daily sales array
             $dailySales = [];
-            $collections = Collection::all();
-
-            foreach ($collections as $collection) {
-                // Get sales grouped by date
-                $salesByDate = OrderItem::join('items', 'order_items.item_id', '=', 'items.id')
-                    ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                    ->join('payments', 'payments.order_id', '=', 'orders.id')
-                    ->where('items.collection_id', $collection->id)
-                    ->where('payments.payment_status', 'Paid')
-                    ->select(
-                        DB::raw('DATE(orders.created_at) as date'),
-                        DB::raw('SUM(order_items.price * order_items.quantity) as total_sales')
-                    )
-                    ->groupBy(DB::raw('DATE(orders.created_at)'))
-                    ->get();
-
-                foreach ($salesByDate as $sale) {
-                    $dailySales[$sale->date][$collection->name] = round($sale->total_sales);
+            for ($day = 1; $day <= $monthDays; $day++) {
+                $row = ['date' => $day];
+                foreach ($collections as $collection) {
+                    $row[$collection] = 0;
                 }
+                $dailySales[$day - 1] = $row; // 0-indexed
             }
 
-            // Fill missing collection sales with 0 for each date
-            $allDates = array_keys($dailySales);
-            foreach ($allDates as $date) {
-                foreach ($collections as $collection) {
-                    if (!isset($dailySales[$date][$collection->name])) {
-                        $dailySales[$date][$collection->name] = 0;
+            // Fetch orders with items and collections for current month
+            $orders = Order::whereMonth('created_at', now()->month)
+                ->whereHas('payment', function($q){
+                    $q->where('payment_status', 'Paid');
+                })
+                ->with('orderItems.item.collection')
+                ->get();
+
+            // Aggregate sales per day per collection
+            foreach ($orders as $order) {
+                $dayIndex = (int) $order->created_at->format('d') - 1;
+                foreach ($order->orderItems as $item) {
+                    $collectionName = $item->item->collection->name ?? null;
+                    if ($collectionName) {
+                        $dailySales[$dayIndex][$collectionName] += $item->price * $item->quantity;
                     }
                 }
-                $dailySales[$date]['date'] = $date; // Add date key for chart
             }
 
-            // Convert associative array to indexed array
-            $dailySalesArray = array_values($dailySales);
+            // Convert to chart-ready array
+            $chartData = array_values($dailySales);
 
+            // ───────────────────────────────────────────────
+            // RETURN JSON
+            // ───────────────────────────────────────────────
             return response()->json([
-                'totalRevenue' => round($totalRevenue),
-                'grossIncome' => round($grossIncome),
-                'netIncome' => round($netIncome),
-                'totalItemsSold' => (int) $totalItemsSold,
-                'totalCustomers' => (int) $totalCustomers,
+                'totalRevenue'    => round($totalRevenue),
+                'grossIncome'     => round($grossIncome),
+                'netIncome'       => round($netIncome),
+                'totalItemsSold'  => (int) $totalItemsSold,
+                'totalCustomers'  => (int) $totalCustomers,
                 'collectionSales' => $collectionSales,
-                'dailySales' => $dailySalesArray, // for line chart
+                'dailySales'      => $chartData,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Dashboard summary error: ' . $e->getMessage());
-
+            Log::error('Dashboard summary error: '.$e->getMessage());
             return response()->json(['message' => 'Server Error'], 500);
         }
     }
 }
+
+
+
+// <?php
+
+// namespace App\Http\Controllers;
+
+// use App\Models\Collection;
+// use App\Models\Order;
+// use Illuminate\Support\Facades\Log;
+// use Illuminate\Support\Facades\DB;
+
+// class DashboardController extends Controller
+// {
+//     public function summary()
+//     {
+//         try {
+//             // ───────────────────────────────────────────────
+//             // TOTALS from orders/payments
+//             // ───────────────────────────────────────────────
+//             $totalRevenue = DB::table('orders')
+//                 ->join('payments', 'orders.id', '=', 'payments.order_id')
+//                 ->where('payments.payment_status', 'Paid')
+//                 ->sum('orders.total');
+
+//             $totalItemsSold = DB::table('order_items')
+//                 ->join('orders', 'order_items.order_id', '=', 'orders.id')
+//                 ->join('payments', 'payments.order_id', '=', 'orders.id')
+//                 ->where('payments.payment_status', 'Paid')
+//                 ->sum('order_items.quantity');
+
+//             $totalCustomers = DB::table('orders')
+//                 ->join('payments', 'payments.order_id', '=', 'orders.id')
+//                 ->where('payments.payment_status', 'Paid')
+//                 ->distinct('orders.customer_id')
+//                 ->count('orders.customer_id');
+
+//             $grossIncome = $totalRevenue;
+//             $netIncome = $totalRevenue; // You can replace with capital logic if needed
+
+//             // ───────────────────────────────────────────────
+//             // COLLECTION SALES using leftJoin (your logic)
+//             // ───────────────────────────────────────────────
+//             $collectionSales = Collection::leftJoin('items', 'collections.id', '=', 'items.collection_id')
+//                 ->leftJoin('order_items', 'items.id', '=', 'order_items.item_id')
+//                 ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
+//                 ->leftJoin('payments', 'payments.order_id', '=', 'orders.id')
+//                 ->where('payments.payment_status', 'Paid')
+//                 ->groupBy('collections.id', 'collections.name')
+//                 ->selectRaw('collections.name as collection_name, COALESCE(SUM(order_items.price * order_items.quantity), 0) as total_sales')
+//                 ->get()
+//                 ->map(function ($collection) {
+//                     return [
+//                         'collection_name' => $collection->collection_name,
+//                         'total_sales' => round($collection->total_sales),
+//                     ];
+//                 });
+
+//             // ───────────────────────────────────────────────
+//             // DAILY SALES for chart
+//             // ───────────────────────────────────────────────
+//             $collections = Collection::pluck('name')->toArray();
+//             $monthDays = now()->daysInMonth;
+
+//             // Initialize daily sales array
+//             $dailySales = [];
+//             for ($day = 1; $day <= $monthDays; $day++) {
+//                 $row = ['date' => $day];
+//                 foreach ($collections as $collection) {
+//                     $row[$collection] = 0;
+//                 }
+//                 $dailySales[$day - 1] = $row; // 0-indexed
+//             }
+
+//             // Fetch orders with items and collections for current month
+//             $orders = Order::whereMonth('created_at', now()->month)
+//                 ->whereHas('payment', function($q){
+//                     $q->where('payment_status', 'Paid');
+//                 })
+//                 ->with('orderItems.item.collection')
+//                 ->get();
+
+//             // Aggregate sales per day per collection
+//             foreach ($orders as $order) {
+//                 $dayIndex = (int) $order->created_at->format('d') - 1;
+//                 foreach ($order->orderItems as $item) {
+//                     $collectionName = $item->item->collection->name ?? null;
+//                     if ($collectionName) {
+//                         $dailySales[$dayIndex][$collectionName] += $item->price * $item->quantity;
+//                     }
+//                 }
+//             }
+
+//             // Convert to chart-ready array
+//             $chartData = array_values($dailySales);
+
+//             // ───────────────────────────────────────────────
+//             // RETURN JSON
+//             // ───────────────────────────────────────────────
+//             return response()->json([
+//                 'totalRevenue'    => round($totalRevenue),
+//                 'grossIncome'     => round($grossIncome),
+//                 'netIncome'       => round($netIncome),
+//                 'totalItemsSold'  => (int) $totalItemsSold,
+//                 'totalCustomers'  => (int) $totalCustomers,
+//                 'collectionSales' => $collectionSales,
+//                 'dailySales'      => $chartData,
+//             ]);
+
+//         } catch (\Exception $e) {
+//             Log::error('Dashboard summary error: '.$e->getMessage());
+//             return response()->json(['message' => 'Server Error'], 500);
+//         }
+//     }
+// }

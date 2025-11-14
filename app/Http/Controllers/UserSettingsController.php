@@ -34,7 +34,7 @@ class UserSettingsController extends Controller
 
         $request->validate([
             'business_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'email' => 'required|email|unique:users,email,'.$user->id,
         ]);
 
         $user->update([
@@ -89,6 +89,7 @@ class UserSettingsController extends Controller
             return response()->json(['message' => 'Password updated successfully'], 200);
         } catch (\Throwable $e) {
             Log::error('Error updating password', ['error' => $e->getMessage()]);
+
             return response()->json(['message' => 'Failed to update password.'], 500);
         }
     }

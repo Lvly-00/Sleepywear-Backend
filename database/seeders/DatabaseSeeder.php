@@ -3,10 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\Collection;
-use App\Models\Item;
-use App\Models\User;
 use App\Models\Customer;
+use App\Models\Item;
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -51,7 +51,7 @@ class DatabaseSeeder extends Seeder
         //         'status' => 'Active',
         //     ]);
 
-            // ─── Seed 120 Items per Collection ──────────────────────
+        // ─── Seed 120 Items per Collection ──────────────────────
         //     $itemsData = [];
         //     for ($j = 1; $j <= 120; $j++) {
         //         $itemCode = sprintf('%03d%03d', $i, $j);

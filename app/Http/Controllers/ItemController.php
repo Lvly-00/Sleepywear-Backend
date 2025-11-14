@@ -8,53 +8,54 @@ use Illuminate\Support\Facades\Storage;
 
 class ItemController extends Controller
 {
-   public function index(Request $request)
-{
-    $collectionId = $request->query('collection_id');
+    public function index(Request $request)
+    {
+        $collectionId = $request->query('collection_id');
 
-    if (! $collectionId) {
-        return response()->json(['error' => 'collection_id is required'], 400);
-    }
+        if (! $collectionId) {
+            return response()->json(['error' => 'collection_id is required'], 400);
+        }
 
-    $items = Item::where('collection_id', $collectionId)
-        ->with('collection')
-        ->get()
-        ->map(function ($item) {
-            $item->collection_name = $item->collection?->name ?? 'N/A';
-            $item->is_available = $item->status === 'Available';
-            $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
-            return $item;
-        })
-        ->sort(function ($a, $b) {
-            // Map status to order values
-            $statusSort = function ($status) {
-                return match ($status) {
-                    'Available' => 1,
-                    'Sold Out' => 2,
-                    default => 3,
+        $items = Item::where('collection_id', $collectionId)
+            ->with('collection')
+            ->get()
+            ->map(function ($item) {
+                $item->collection_name = $item->collection?->name ?? 'N/A';
+                $item->is_available = $item->status === 'Available';
+                $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+
+                return $item;
+            })
+            ->sort(function ($a, $b) {
+                // Map status to order values
+                $statusSort = function ($status) {
+                    return match ($status) {
+                        'Available' => 1,
+                        'Sold Out' => 2,
+                        default => 3,
+                    };
                 };
-            };
 
-            $aStatus = $statusSort($a->status);
-            $bStatus = $statusSort($b->status);
+                $aStatus = $statusSort($a->status);
+                $bStatus = $statusSort($b->status);
 
-            // Sort by status first
-            if ($aStatus !== $bStatus) {
-                return $aStatus <=> $bStatus;
-            }
+                // Sort by status first
+                if ($aStatus !== $bStatus) {
+                    return $aStatus <=> $bStatus;
+                }
 
-            // If both Available, sort by created_at ascending (oldest first)
-            if ($aStatus === 1 && $bStatus === 1) {
-                return $a->created_at <=> $b->created_at;
-            }
+                // If both Available, sort by created_at ascending (oldest first)
+                if ($aStatus === 1 && $bStatus === 1) {
+                    return $a->created_at <=> $b->created_at;
+                }
 
-            // Otherwise, sort by updated_at ascending (oldest first)
-            return $a->updated_at <=> $b->updated_at;
-        })
-        ->values();
+                // Otherwise, sort by updated_at ascending (oldest first)
+                return $a->updated_at <=> $b->updated_at;
+            })
+            ->values();
 
-    return response()->json($items);
-}
+        return response()->json($items);
+    }
 
     public function show($id)
     {
