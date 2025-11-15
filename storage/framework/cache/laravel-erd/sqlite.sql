@@ -1,3 +1,16 @@
+CREATE TABLE collection_sales_summary (
+    id integer(11) NOT NULL AUTO_INCREMENT,
+    collection_id integer(11),
+    collection_name varchar(255) NOT NULL,
+    collection_capital numeric NOT NULL,
+    date date NOT NULL,
+    total_sales numeric NOT NULL,
+    total_items_sold integer(11) NOT NULL,
+    total_customers integer(11) NOT NULL,
+    created_at datetime,
+    updated_at datetime,
+    PRIMARY KEY(id)
+)
 CREATE TABLE collections (
     id integer(11) NOT NULL AUTO_INCREMENT,
     name varchar(255) NOT NULL,
@@ -108,6 +121,7 @@ CREATE TABLE users (
     updated_at datetime,
     PRIMARY KEY(id)
 )
+ALTER TABLE collection_sales_summary ADD FOREIGN KEY (collection_id) REFERENCES collections (id)
 ALTER TABLE collections ADD FOREIGN KEY (id) REFERENCES items (collection_id)
 ALTER TABLE customers ADD FOREIGN KEY (id) REFERENCES orders (customer_id)
 ALTER TABLE invoices ADD FOREIGN KEY (order_id) REFERENCES orders (id)
