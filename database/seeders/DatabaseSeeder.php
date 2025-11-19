@@ -28,6 +28,8 @@ class DatabaseSeeder extends Seeder
             ['name' => 'SamsungZ', 'business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
             ['name' => 'AppleZZ', 'business_name' => 'Apple', 'email' => 'kirkbondoc31@gmail.com'],
             ['name' => 'GoogleZ', 'business_name' => 'Google', 'email' => 'myriahvielle619@gmail.com'],
+            ['name' => 'Sleepywears', 'business_name' => 'Sleepywears', 'email' => 'angelesalyannamarie@gmail.com'],
+
         ];
 
         foreach ($users as $user) {
