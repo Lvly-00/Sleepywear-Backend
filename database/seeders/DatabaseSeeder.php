@@ -28,11 +28,10 @@ class DatabaseSeeder extends Seeder
             ['name' => 'GoogleZ', 'email' => 'myriahvielle619@gmail.com'],
             ['name' => 'Sleepywears', 'email' => 'angelesalyannamarie@gmail.com'],
 
-            // ─── Instructors accounts ──────────────────────────────────
+            // ─── Instructors accounts ────────────────────────────────
             ['name' => 'Elmer', 'email' => 'elmeralvarado@laverdad.edu.ph'],
             ['name' => 'Giselle', 'email' => 'magiselledionisio@laverdad.edu.ph'],
             ['name' => 'Gian', 'email' => 'giancarlo.gallon@laverdad.edu.ph'],
-
         ];
 
         foreach ($users as $user) {
@@ -43,9 +42,12 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        // $userId = 1; // Change as needed to associate seeded data with a user
+
         // ─── Seed 50 Collections ─────────────────────────────────
         // for ($i = 1; $i <= 50; $i++) {
         //     $collection = Collection::create([
+        //         'user_id' => $userId,
         //         'name' => $this->ordinal($i) . ' Collection',
         //         'release_date' => Carbon::now()->subDays(rand(0, 365)),
         //         'qty' => 70,
@@ -55,12 +57,13 @@ class DatabaseSeeder extends Seeder
         //         'status' => 'Active',
         //     ]);
 
-        // ─── Seed 120 Items per Collection ──────────────────────
+            // ─── Seed 120 Items per Collection ──────────────────────
         //     $itemsData = [];
         //     for ($j = 1; $j <= 120; $j++) {
         //         $itemCode = sprintf('%03d%03d', $i, $j);
 
         //         $itemsData[] = [
+        //             'user_id' => $userId,
         //             'collection_id' => $collection->id,
         //             'code' => $itemCode,
         //             'name' => "Item {$j} of {$collection->name}",
@@ -79,6 +82,7 @@ class DatabaseSeeder extends Seeder
         // $customers = [];
         // for ($i = 1; $i <= 50; $i++) {
         //     $customers[] = Customer::create([
+        //         'user_id' => $userId,
         //         'first_name' => "CustomerFirst{$i}",
         //         'last_name' => "CustomerLast{$i}",
         //         'address' => "Address {$i}, City, Country",
@@ -90,6 +94,7 @@ class DatabaseSeeder extends Seeder
         // ─── Seed 50 Orders ──────────────────────────────────────
         // foreach ($customers as $customer) {
         //     Order::create([
+        //         'user_id' => $userId,
         //         'customer_id' => $customer->id,
         //         'first_name' => $customer->first_name,
         //         'last_name' => $customer->last_name,
