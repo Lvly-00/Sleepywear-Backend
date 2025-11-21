@@ -22,8 +22,13 @@ class OrderController extends Controller
         // Paginate orders, only for authenticated user
         $ordersQuery = Order::with(['items', 'payment'])
             ->where('user_id', auth()->id())
-            ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
-            ->orderBy('created_at', 'desc');
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+            ->select('orders.*') // important to select orders columns only for pagination to work
+            ->orderByRaw("
+        CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
+        CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
+        CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
+    ");
 
         $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page);
 

@@ -57,7 +57,7 @@ class DatabaseSeeder extends Seeder
         //         'status' => 'Active',
         //     ]);
 
-            // ─── Seed 120 Items per Collection ──────────────────────
+        // ─── Seed 120 Items per Collection ──────────────────────
         //     $itemsData = [];
         //     for ($j = 1; $j <= 120; $j++) {
         //         $itemCode = sprintf('%03d%03d', $i, $j);
