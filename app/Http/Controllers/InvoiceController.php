@@ -34,6 +34,7 @@ class InvoiceController extends Controller
             'order_id' => $order->id,
             'status' => $data['status'] ?? 'Draft',
             'total' => $grandTotal,
+            'user_id' => auth()->id(), // add this line
         ]);
 
         return response()->json([

@@ -52,8 +52,11 @@ class PaymentController extends Controller
                     $summary->total_sales = ($summary->total_sales ?? 0) + ($item->price * $item->quantity);
                     $summary->total_items_sold = ($summary->total_items_sold ?? 0) + $item->quantity;
                     $summary->total_customers = ($summary->total_customers ?? 0) + 1;
+                    $summary->user_id = auth()->id();  // <== add this line
+
                     $summary->save();
                 }
+
             }
 
             if ($order->invoice) {

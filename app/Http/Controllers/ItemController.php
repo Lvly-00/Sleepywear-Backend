@@ -13,7 +13,7 @@ class ItemController extends Controller
     {
         $collectionId = $request->query('collection_id');
 
-        if (!$collectionId) {
+        if (! $collectionId) {
             return response()->json(['error' => 'collection_id is required'], 400);
         }
 
@@ -25,7 +25,8 @@ class ItemController extends Controller
             ->map(function ($item) {
                 $item->collection_name = $item->collection?->name ?? 'N/A';
                 $item->is_available = $item->status === 'Available';
-                $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
+                $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+
                 return $item;
             })
             ->sort(function ($a, $b) {
@@ -44,6 +45,7 @@ class ItemController extends Controller
                 if ($aStatus === 1 && $bStatus === 1) {
                     return $a->created_at <=> $b->created_at;
                 }
+
                 return $a->updated_at <=> $b->updated_at;
             })
             ->values();
@@ -55,13 +57,13 @@ class ItemController extends Controller
     {
         $item = Item::with('collection')->find($id);
 
-        if (!$item || $item->user_id !== auth()->id()) { // protect access
+        if (! $item || $item->user_id !== auth()->id()) { // protect access
             return response()->json(['message' => 'Item not found'], 404);
         }
 
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
-        $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
+        $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
 
         return response()->json($item);
     }
@@ -81,7 +83,7 @@ class ItemController extends Controller
             ->where('user_id', auth()->id())
             ->first();
 
-        if (!$collection) {
+        if (! $collection) {
             return response()->json(['error' => 'Collection not found or access denied'], 404);
         }
 
@@ -97,7 +99,7 @@ class ItemController extends Controller
             ? intval(substr($lastItem->code, 3)) + 1
             : 1;
 
-        $code = $collectionNumber . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+        $code = $collectionNumber.'-'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
         $path = $request->file('image')->store('items', 'public');
 
@@ -115,7 +117,7 @@ class ItemController extends Controller
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = true;
-        $item->image_url = asset('storage/' . $item->image);
+        $item->image_url = asset('storage/'.$item->image);
 
         return response()->json($item, 201);
     }
@@ -140,7 +142,7 @@ class ItemController extends Controller
             ->where('user_id', auth()->id())
             ->first();
 
-        if (!$collection) {
+        if (! $collection) {
             return response()->json(['error' => 'Collection not found or access denied'], 404);
         }
 
@@ -163,7 +165,7 @@ class ItemController extends Controller
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
-        $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
+        $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
 
         return response()->json($item);
     }

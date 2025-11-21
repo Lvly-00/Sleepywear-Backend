@@ -6,24 +6,41 @@ use App\Models\OrderItem;
 
 class OrderItemController extends Controller
 {
+    /**
+     * List paginated order items with related order and customer.
+     */
     public function index()
     {
-        $items = OrderItem::with('order', 'customers.order')->orderBy('created_at', 'asc')->paginate(25);
+        // Eager load order and customer via order.customer
+        $items = OrderItem::with(['order.customer'])
+            ->orderBy('created_at', 'asc')
+            ->paginate(25);
 
         return response()->json($items);
     }
 
-    public function show(OrderItem $item)
+    /**
+     * Show a single order item with related order and customer.
+     */
+    public function show(OrderItem $orderItem)
     {
-        $item->load('customers.order');
+        $orderItem->load('order.customer');
 
-        return response()->json($item);
+        return response()->json($orderItem);
     }
 
-    public function customers(OrderItem $item)
+    /**
+     * Get the customer for the order item.
+     */
+    public function customer(OrderItem $orderItem)
     {
-        $customers = $item->customers()->with('order')->orderBy('created_at', 'asc')->get();
+        // Access the customer through the order
+        $customer = $orderItem->order ? $orderItem->order->customer : null;
 
-        return response()->json($customers);
+        if (! $customer) {
+            return response()->json(['message' => 'Customer not found'], 404);
+        }
+
+        return response()->json($customer);
     }
 }

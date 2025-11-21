@@ -16,7 +16,7 @@ class CustomerController extends Controller
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search');
 
-        $query = Customer::query()->orderBy('first_name');
+        $query = Customer::where('user_id', auth()->id())->orderBy('first_name');
 
         if ($search) {
             $searchLower = strtolower($search);
@@ -53,6 +53,8 @@ class CustomerController extends Controller
             'social_handle' => 'nullable|string|max:255',
         ]);
 
+        $validated['user_id'] = auth()->id();
+
         $customer = Customer::create($validated);
         $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
 
@@ -64,10 +66,12 @@ class CustomerController extends Controller
      */
     public function show($id)
     {
-        $customer = Customer::find($id);
+        $customer = Customer::where('id', $id)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if (! $customer) {
-            return response()->json(['message' => 'Customer not found'], 404);
+            return response()->json(['message' => 'Customer not found or unauthorized'], 404);
         }
 
         $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
@@ -78,8 +82,16 @@ class CustomerController extends Controller
     /**
      * Update the specified customer.
      */
-    public function update(Request $request, Customer $customer)
+    public function update(Request $request, $id)
     {
+        $customer = Customer::where('id', $id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $customer) {
+            return response()->json(['message' => 'Customer not found or unauthorized'], 404);
+        }
+
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',
@@ -97,8 +109,16 @@ class CustomerController extends Controller
     /**
      * Remove the specified customer.
      */
-    public function destroy(Customer $customer)
+    public function destroy($id)
     {
+        $customer = Customer::where('id', $id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $customer) {
+            return response()->json(['message' => 'Customer not found or unauthorized'], 404);
+        }
+
         $customer->delete();
 
         return response()->json(['message' => 'Customer deleted']);

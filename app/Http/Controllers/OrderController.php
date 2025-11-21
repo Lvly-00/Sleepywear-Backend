@@ -19,8 +19,9 @@ class OrderController extends Controller
         $perPage = 10; // 10 orders per page
         $page = $request->query('page', 1);
 
-        // Paginate orders
+        // Paginate orders, only for authenticated user
         $ordersQuery = Order::with(['items', 'payment'])
+            ->where('user_id', auth()->id())
             ->orderByRaw("CASE WHEN id IN (SELECT order_id FROM payments WHERE payment_status='Unpaid') THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc');
 
@@ -56,7 +57,7 @@ class OrderController extends Controller
                     $customer->update($customerData);
                 }
 
-                // Create order
+                // Create order with user_id
                 $order = Order::create([
                     'customer_id' => $customer->id,
                     'first_name' => $customer->first_name,
@@ -65,6 +66,7 @@ class OrderController extends Controller
                     'contact_number' => $customer->contact_number,
                     'social_handle' => $customer->social_handle,
                     'total' => 0,
+                    'user_id' => auth()->id(),
                 ]);
 
                 $orderTotal = 0;
@@ -76,6 +78,7 @@ class OrderController extends Controller
                         'item_name' => $itemData['item_name'],
                         'price' => $itemData['price'],
                         'quantity' => $itemData['quantity'] ?? 1,
+                        'user_id' => auth()->id(),
                     ]);
 
                     // Update item status to Sold Out
@@ -93,11 +96,12 @@ class OrderController extends Controller
                     'total_paid' => 0,
                 ]);
 
-                // Create invoice
+                // Create invoice with user_id to avoid NOT NULL error
                 Invoice::create([
                     'order_id' => $order->id,
                     'total' => $orderTotal,
                     'status' => 'Draft',
+                    'user_id' => auth()->id(),
                 ]);
 
                 $order->load(['items', 'payment']);
@@ -115,6 +119,11 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
+        // Check ownership
+        if ($order->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $order->load(['items', 'payment']);
         $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
 
@@ -123,6 +132,11 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order)
     {
+        // Check ownership
+        if ($order->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         try {
             $customerData = $request->input('customer');
 
@@ -155,6 +169,11 @@ class OrderController extends Controller
 
     public function updateItems(Request $request, Order $order)
     {
+        // Check ownership
+        if ($order->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         try {
             return DB::transaction(function () use ($request, $order) {
                 // Revert old items to available
@@ -177,6 +196,7 @@ class OrderController extends Controller
                         'item_name' => $itemData['item_name'],
                         'price' => $itemData['price'],
                         'quantity' => $itemData['quantity'] ?? 1,
+                        'user_id' => auth()->id(),
                     ]);
 
                     // Mark new items as sold out
@@ -209,6 +229,11 @@ class OrderController extends Controller
 
     public function destroy(Order $order)
     {
+        // Check ownership
+        if ($order->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         DB::beginTransaction();
 
         try {
