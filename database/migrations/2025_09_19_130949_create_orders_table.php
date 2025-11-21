@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
             $table->string('first_name');
             $table->string('last_name');
@@ -21,9 +22,9 @@ return new class extends Migration
             $table->string('social_handle');
             $table->timestamp('order_date')->useCurrent();
             $table->integer('total')->default(0);
-
             $table->timestamps();
         });
+
     }
 
     /**

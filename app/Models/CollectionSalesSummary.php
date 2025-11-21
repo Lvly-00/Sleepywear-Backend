@@ -9,6 +9,8 @@ class CollectionSalesSummary extends Model
     protected $table = 'collection_sales_summary';
 
     protected $fillable = [
+        'user_id',
+
         'collection_id',
         'collection_name',
         'collection_capital',

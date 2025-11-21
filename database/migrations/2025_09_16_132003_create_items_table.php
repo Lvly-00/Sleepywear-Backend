@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('items', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('collection_id')->constrained()->cascadeOnDelete();
             $table->string('code')->unique();
             $table->string('name');
@@ -21,6 +22,7 @@ return new class extends Migration
             $table->enum('status', ['Available', 'Sold Out'])->default('Available');
             $table->timestamps();
         });
+
     }
 
     /**

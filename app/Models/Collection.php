@@ -10,6 +10,7 @@ class Collection extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name',
         'release_date',
         'qty',

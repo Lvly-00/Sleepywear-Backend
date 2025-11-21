@@ -10,17 +10,19 @@ return new class extends Migration
     {
         Schema::create('collection_sales_summary', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('collection_id')->nullable();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('collection_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('collection_name');
-            $table->decimal('collection_capital', 15, 2)->default(0); // store capital at time of sale
-            $table->date('date'); // day of sales
-            $table->decimal('total_sales', 15, 2)->default(0); // revenue
+            $table->decimal('collection_capital', 15, 2)->default(0);
+            $table->date('date');
+            $table->decimal('total_sales', 15, 2)->default(0);
             $table->integer('total_items_sold')->default(0);
             $table->integer('total_customers')->default(0);
             $table->timestamps();
 
-            $table->unique(['collection_id', 'date']); // one record per collection per day
+            $table->unique(['collection_id', 'date']);
         });
+
     }
 
     public function down(): void

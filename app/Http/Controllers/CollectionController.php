@@ -26,33 +26,35 @@ class CollectionController extends Controller
 
     public function index(Request $request)
     {
-    $perPage = $request->input('per_page', 10);
-    $search = $request->input('search');
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search');
 
-    $query = Collection::with('items')->orderBy('id', 'asc');
+        // Query only this user's collections
+        $query = Collection::with('items')
+            ->where('user_id', auth()->id())
+            ->orderBy('id', 'asc');
 
-    if ($search) {
-        $query->where('name', 'like', "%{$search}%");
-    }
-
-    $collections = $query->paginate($perPage);
-
-    // Transform data
-    $collections->getCollection()->transform(function ($col) {
-        if (is_numeric($col->name)) {
-            $col->name = $this->ordinal($col->name);
+        if ($search) {
+            $query->where('name', 'like', "%{$search}%");
         }
 
-        $col->stock_qty = $col->items->sum('stock_qty');
-        $col->qty = $col->items->count();
-        $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
-        $col->capital = $col->capital ?? 0;
-        $col->status = $col->items->where('status', 'Available')->count() > 0
-            ? 'Active'
-            : 'Sold Out';
+        $collections = $query->paginate($perPage);
 
-        return $col;
-    });
+        $collections->getCollection()->transform(function ($col) {
+            if (is_numeric($col->name)) {
+                $col->name = $this->ordinal($col->name);
+            }
+
+            $col->stock_qty = $col->items->sum('stock_qty');
+            $col->qty = $col->items->count();
+            $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
+            $col->capital = $col->capital ?? 0;
+            $col->status = $col->items->where('status', 'Available')->count() > 0
+                ? 'Active'
+                : 'Sold Out';
+
+            return $col;
+        });
 
         return response()->json($collections);
     }
@@ -68,7 +70,12 @@ class CollectionController extends Controller
         $inputName = $request->input('name');
         $finalName = is_numeric($inputName) ? $this->ordinal($inputName) : $inputName;
 
-        if (Collection::where('name', $finalName)->exists()) {
+        // Prevent duplicate per user
+        if (
+            Collection::where('user_id', auth()->id())
+                ->where('name', $finalName)
+                ->exists()
+        ) {
             return response()->json([
                 'message' => 'The given data was invalid.',
                 'errors' => [
@@ -81,6 +88,7 @@ class CollectionController extends Controller
             'name' => $finalName,
             'release_date' => $request->input('release_date'),
             'capital' => $request->input('capital'),
+            'user_id' => auth()->id(),
         ]);
 
         $collection->load('items');
@@ -98,6 +106,11 @@ class CollectionController extends Controller
 
     public function show(Collection $collection)
     {
+        // Prevent viewing another user's collection
+        if ($collection->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $collection->load('items');
         $collection->stock_qty = $collection->items->sum('stock_qty');
         $collection->qty = $collection->items->count();
@@ -118,33 +131,63 @@ class CollectionController extends Controller
 
     public function update(Request $request, Collection $collection)
     {
+        if ($collection->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255', // numeric string expected
             'release_date' => 'required|date',
             'capital' => 'required|numeric|min:0',
         ]);
 
-        $collection->update($request->only('name', 'release_date', 'capital'));
+        $inputName = $request->input('name');
+
+        if (is_numeric($inputName)) {
+            $finalName = $this->ordinal((int)$inputName);
+        } else {
+            $finalName = $inputName;
+        }
+
+        if (
+            Collection::where('user_id', auth()->id())
+                ->where('id', '!=', $collection->id)
+                ->where('name', $finalName)
+                ->exists()
+        ) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'name' => ['The collection name has already been taken.'],
+                ],
+            ], 422);
+        }
+
+        $collection->update([
+            'name' => $finalName,
+            'release_date' => $request->input('release_date'),
+            'capital' => $request->input('capital'),
+        ]);
 
         $collection->load('items');
+        preg_match('/\d+/', $collection->name, $matches);
+        $collection->ordinal = !empty($matches) ? (int)$matches[0] : null;
+
         $collection->stock_qty = $collection->items->sum('stock_qty');
         $collection->qty = $collection->items->count();
-        $collection->total_sales = $collection->items
-            ->where('status', 'Sold Out')
-            ->sum('price');
-        $collection->status = $collection->items->where('status', 'Available')->count() > 0
-            ? 'Active'
-            : 'Sold Out';
-
-        if (is_numeric($collection->name)) {
-            $collection->name = $this->ordinal($collection->name);
-        }
+        $collection->total_sales = $collection->items->where('status', 'Sold Out')->sum('price');
+        $collection->status = $collection->items->where('status', 'Available')->count() > 0 ? 'Active' : 'Sold Out';
 
         return response()->json($collection);
     }
 
     public function destroy(Collection $collection)
     {
+        // Protect delete
+        if ($collection->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $collection->delete();
 
         return response()->noContent();

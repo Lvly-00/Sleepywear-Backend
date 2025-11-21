@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 class Invoice extends Model
 {
     protected $fillable = [
+        'user_id',
+
         'order_id',
         'status',
         'total',
