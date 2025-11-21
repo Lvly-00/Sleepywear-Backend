@@ -17,25 +17,27 @@ class DatabaseSeeder extends Seeder
         // ─── Main business account ────────────────────────────────
         User::create([
             'name' => 'SleepyWears',
-            'business_name' => 'SleepyWear Company',
             'email' => 'lovelypintes@gmail.com',
             'password' => bcrypt('password'),
         ]);
 
         // ─── Additional accounts ──────────────────────────────────
         $users = [
-            ['name' => 'ToyotaZ', 'business_name' => 'Toyota', 'email' => 'ruthmayreginos2786@gmail.com'],
-            ['name' => 'SamsungZ', 'business_name' => 'Samsung', 'email' => 'sofiaisabellatina@gmail.com'],
-            ['name' => 'AppleZZ', 'business_name' => 'Apple', 'email' => 'kirkbondoc31@gmail.com'],
-            ['name' => 'GoogleZ', 'business_name' => 'Google', 'email' => 'myriahvielle619@gmail.com'],
-            ['name' => 'Sleepywears', 'business_name' => 'Sleepywears', 'email' => 'angelesalyannamarie@gmail.com'],
+            ['name' => 'ToyotaZ', 'email' => 'ruthmayreginos2786@gmail.com'],
+            ['name' => 'SamsungZ', 'email' => 'sofiaisabellatina@gmail.com'],
+            ['name' => 'GoogleZ', 'email' => 'myriahvielle619@gmail.com'],
+            ['name' => 'Sleepywears', 'email' => 'angelesalyannamarie@gmail.com'],
+
+            // ─── Instructors accounts ──────────────────────────────────
+            ['name' => 'Elmer', 'email' => 'elmeralvarado@laverdad.edu.ph'],
+            ['name' => 'Giselle', 'email' => 'magiselledionisio@laverdad.edu.ph'],
+            ['name' => 'Gian', 'email' => 'giancarlo.gallon@laverdad.edu.ph'],
 
         ];
 
         foreach ($users as $user) {
             User::create([
                 'name' => $user['name'],
-                'business_name' => $user['business_name'],
                 'email' => $user['email'],
                 'password' => bcrypt('password'),
             ]);

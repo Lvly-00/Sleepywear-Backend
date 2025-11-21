@@ -19,7 +19,7 @@ class UserSettingsController extends Controller
         }
 
         return response()->json([
-            'business_name' => $user->business_name ?? '',
+            'name' => $user->business_name ?? '',
             'email' => $user->email ?? '',
         ], 200);
     }
@@ -33,12 +33,12 @@ class UserSettingsController extends Controller
         }
 
         $request->validate([
-            'business_name' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,'.$user->id,
         ]);
 
         $user->update([
-            'business_name' => $request->business_name,
+            'name' => $request->business_name,
             'email' => $request->email,
         ]);
 
