@@ -13,22 +13,22 @@ class ItemController extends Controller
     {
         $collectionId = $request->query('collection_id');
 
-        if (! $collectionId) {
+        if (!$collectionId) {
             return response()->json(['error' => 'collection_id is required'], 400);
         }
 
+        // Filter items by authenticated user to prevent data leaks
         $items = Item::where('collection_id', $collectionId)
+            ->where('user_id', auth()->id()) // <-- filter by current user
             ->with('collection')
             ->get()
             ->map(function ($item) {
                 $item->collection_name = $item->collection?->name ?? 'N/A';
                 $item->is_available = $item->status === 'Available';
-                $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
-
+                $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
                 return $item;
             })
             ->sort(function ($a, $b) {
-                // Map status to order values
                 $statusSort = function ($status) {
                     return match ($status) {
                         'Available' => 1,
@@ -36,21 +36,14 @@ class ItemController extends Controller
                         default => 3,
                     };
                 };
-
                 $aStatus = $statusSort($a->status);
                 $bStatus = $statusSort($b->status);
-
-                // Sort by status first
                 if ($aStatus !== $bStatus) {
                     return $aStatus <=> $bStatus;
                 }
-
-                // If both Available, sort by created_at ascending (oldest first)
                 if ($aStatus === 1 && $bStatus === 1) {
                     return $a->created_at <=> $b->created_at;
                 }
-
-                // Otherwise, sort by updated_at ascending (oldest first)
                 return $a->updated_at <=> $b->updated_at;
             })
             ->values();
@@ -62,13 +55,13 @@ class ItemController extends Controller
     {
         $item = Item::with('collection')->find($id);
 
-        if (! $item) {
+        if (!$item || $item->user_id !== auth()->id()) { // protect access
             return response()->json(['message' => 'Item not found'], 404);
         }
 
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
-        $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+        $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
 
         return response()->json($item);
     }
@@ -83,32 +76,34 @@ class ItemController extends Controller
             'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $collectionId = $validated['collection_id'];
+        // Verify collection belongs to current user
+        $collection = Collection::where('id', $validated['collection_id'])
+            ->where('user_id', auth()->id())
+            ->first();
 
-        $collection = Collection::findOrFail($validated['collection_id']);
+        if (!$collection) {
+            return response()->json(['error' => 'Collection not found or access denied'], 404);
+        }
 
-        // Extract the first number from the collection name
+        // Extract number from collection name, fallback to collection ID
         preg_match('/\d+/', $collection->name, $matches);
         $collectionNumber = str_pad($matches[0] ?? $collection->id, 2, '0', STR_PAD_LEFT);
 
-        // Get the last item in this collection to increment the item number
         $lastItem = Item::where('collection_id', $collection->id)
             ->orderByDesc('id')
             ->first();
 
-        // Next item number
         $nextNumber = $lastItem
-            ? intval(substr($lastItem->code, 3)) + 1 // take part after '09-'
+            ? intval(substr($lastItem->code, 3)) + 1
             : 1;
 
-        // Format item code as 09-001
-        $code = $collectionNumber.'-'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+        $code = $collectionNumber . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
-        // Save item
         $path = $request->file('image')->store('items', 'public');
 
         $item = Item::create([
             'collection_id' => $collection->id,
+            'user_id' => auth()->id(), // <-- save current user ID here
             'code' => $code,
             'name' => $validated['name'],
             'price' => $validated['price'],
@@ -120,13 +115,17 @@ class ItemController extends Controller
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = true;
-        $item->image_url = asset('storage/'.$item->image);
+        $item->image_url = asset('storage/' . $item->image);
 
         return response()->json($item, 201);
     }
 
     public function update(Request $request, Item $item)
     {
+        if ($item->user_id !== auth()->id()) { // protect update
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $validated = $request->validate([
             'collection_id' => 'required|exists:collections,id',
             'name' => 'required|string|max:255',
@@ -136,17 +135,25 @@ class ItemController extends Controller
             'status' => 'nullable|string|in:Available,Sold Out',
         ]);
 
+        // Verify collection belongs to current user
+        $collection = Collection::where('id', $validated['collection_id'])
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (!$collection) {
+            return response()->json(['error' => 'Collection not found or access denied'], 404);
+        }
+
         if ($request->hasFile('image')) {
             if ($item->image && Storage::disk('public')->exists($item->image)) {
                 Storage::disk('public')->delete($item->image);
             }
-
             $path = $request->file('image')->store('items', 'public');
             $item->image = $path;
         }
 
         $item->update([
-            'collection_id' => $validated['collection_id'],
+            'collection_id' => $collection->id,
             'name' => $validated['name'],
             'price' => $validated['price'],
             'capital' => $validated['capital'] ?? 0,
@@ -156,13 +163,17 @@ class ItemController extends Controller
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
-        $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+        $item->image_url = $item->image ? asset('storage/' . $item->image) : null;
 
         return response()->json($item);
     }
 
     public function destroy(Item $item)
     {
+        if ($item->user_id !== auth()->id()) { // protect delete
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         if ($item->image && Storage::disk('public')->exists($item->image)) {
             Storage::disk('public')->delete($item->image);
         }

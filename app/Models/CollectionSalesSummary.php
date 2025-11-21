@@ -10,7 +10,6 @@ class CollectionSalesSummary extends Model
 
     protected $fillable = [
         'user_id',
-
         'collection_id',
         'collection_name',
         'collection_capital',

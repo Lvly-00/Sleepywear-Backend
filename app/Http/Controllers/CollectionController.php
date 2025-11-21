@@ -144,7 +144,7 @@ class CollectionController extends Controller
         $inputName = $request->input('name');
 
         if (is_numeric($inputName)) {
-            $finalName = $this->ordinal((int)$inputName);
+            $finalName = $this->ordinal((int) $inputName);
         } else {
             $finalName = $inputName;
         }
@@ -171,7 +171,7 @@ class CollectionController extends Controller
 
         $collection->load('items');
         preg_match('/\d+/', $collection->name, $matches);
-        $collection->ordinal = !empty($matches) ? (int)$matches[0] : null;
+        $collection->ordinal = ! empty($matches) ? (int) $matches[0] : null;
 
         $collection->stock_qty = $collection->items->sum('stock_qty');
         $collection->qty = $collection->items->count();
