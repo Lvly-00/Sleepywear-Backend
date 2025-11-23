@@ -14,37 +14,50 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    public function index(Request $request)
-    {
-        $perPage = 10; // 10 orders per page
-        $page = $request->query('page', 1);
+   public function index(Request $request)
+{
+    $perPage = 10; // Orders per page
+    $page = $request->query('page', 1);
+    $search = $request->query('search'); // Search query
 
-        // Paginate orders, only for authenticated user
-        $ordersQuery = Order::with(['items', 'payment'])
-            ->where('user_id', auth()->id())
-            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-            ->select('orders.*') // important to select orders columns only for pagination to work
-            ->orderByRaw("
-        CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-        CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-        CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-    ");
+    // Base query: orders for authenticated user
+    $ordersQuery = Order::with(['items', 'payment'])
+        ->where('user_id', auth()->id())
+        ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+        ->select('orders.*') // Required for proper pagination
+        ->orderByRaw("
+            CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
+            CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
+            CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
+        ");
 
-        $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page);
+    // Apply search filter if provided
+    if ($search) {
+        $ordersQuery->where(function ($query) use ($search) {
+            $query->where('orders.first_name', 'like', "%{$search}%")
+                  ->orWhere('orders.last_name', 'like', "%{$search}%");
 
-        // Format each order
-        $orders->getCollection()->transform(function ($order) {
-            $order->payment_image_url = $order->payment && $order->payment->payment_image
-                ? asset('storage/'.$order->payment->payment_image)
-                : null;
-
-            $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
-
-            return $order;
         });
-
-        return response()->json($orders);
     }
+
+    // Paginate results
+    $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
+        ->appends(['search' => $search]); // Keep search term in pagination links
+
+    // Format each order
+    $orders->getCollection()->transform(function ($order) {
+        $order->payment_image_url = $order->payment && $order->payment->payment_image
+            ? asset('storage/'.$order->payment->payment_image)
+            : null;
+
+        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
+        return $order;
+    });
+
+    return response()->json($orders);
+}
+
 
     public function store(Request $request)
     {
