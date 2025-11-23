@@ -15,35 +15,53 @@ class AuthController extends Controller
     /**
      * Login
      */
-    public function login(Request $request)
-    {
-        $this->checkTooManyAttempts($request);
+   public function login(Request $request)
+{
+    $this->checkTooManyAttempts($request);
 
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
+    // Validate the request with custom messages
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string',
+    ], [
+        'email.required' => 'Email is required.',
+        'email.email' => 'Invalid email address. Please enter a valid email in the format: username@example.com.',
+        'password.required' => 'Password is required.',
 
-        $user = User::where('email', $request->email)->first();
+    ]);
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($this->throttleKey($request), 60);
+    $user = User::where('email', $request->email)->first();
 
-            return response()->json([
-                'message' => 'Invalid credentials',
-            ], 401);
-        }
-
-        RateLimiter::clear($this->throttleKey($request));
-
-        $token = $user->createToken('api_token')->plainTextToken;
+    // If user exists but password is wrong
+    if ($user && !Hash::check($request->password, $user->password)) {
+        RateLimiter::hit($this->throttleKey($request), 60);
 
         return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $this->safeUser($user),
-        ]);
+            'message' => 'Your password is incorrect.',
+        ], 401);
     }
+
+    // If user doesn't exist
+    if (! $user) {
+        RateLimiter::hit($this->throttleKey($request), 60);
+
+        return response()->json([
+            'message' => 'Invalid email address. Please enter a valid email in the format: username@example.com.',
+        ], 401);
+    }
+
+    // Clear attempts on successful login
+    RateLimiter::clear($this->throttleKey($request));
+
+    $token = $user->createToken('api_token')->plainTextToken;
+
+    return response()->json([
+        'access_token' => $token,
+        'token_type' => 'Bearer',
+        'user' => $this->safeUser($user),
+    ]);
+}
+
 
     /**
      * Generates a secure user output
@@ -69,12 +87,24 @@ class AuthController extends Controller
      * Blocking brute force attempts
      */
     protected function checkTooManyAttempts(Request $request)
-    {
-        if (RateLimiter::tooManyAttempts($this->throttleKey($request), 5)) {
-            $seconds = RateLimiter::availableIn($this->throttleKey($request));
-            abort(429, "Too many login attempts. Try again in {$seconds} seconds.");
+{
+    $throttleKey = $this->throttleKey($request);
+
+    if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+        $seconds = RateLimiter::availableIn($throttleKey);
+
+        $message = "Too many login attempts. Try again in {$seconds} seconds. ";
+        $message .= "Forgot your password? You can <a href='/password/reset'>reset it here</a>.";
+
+        // Use response()->json for API or abort with HTML for web
+        if ($request->wantsJson()) {
+            return response()->json(['error' => $message], 429);
         }
+
+        abort(429, $message);
     }
+}
+
 
     /**
      * Logout
