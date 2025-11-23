@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-   public function index(Request $request)
+  public function index(Request $request)
 {
     $perPage = 10; // Orders per page
     $page = $request->query('page', 1);
@@ -22,7 +22,7 @@ class OrderController extends Controller
 
     // Base query: orders for authenticated user
     $ordersQuery = Order::with(['items', 'payment'])
-        ->where('user_id', auth()->id())
+        ->where('orders.user_id', auth()->id())
         ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
         ->select('orders.*') // Required for proper pagination
         ->orderByRaw("
@@ -31,12 +31,14 @@ class OrderController extends Controller
             CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
         ");
 
-    // Apply search filter if provided
+    // Apply search filter: includes formatted_id (padded ID)
     if ($search) {
         $ordersQuery->where(function ($query) use ($search) {
             $query->where('orders.first_name', 'like', "%{$search}%")
-                  ->orWhere('orders.last_name', 'like', "%{$search}%");
-
+                  ->orWhere('orders.last_name', 'like', "%{$search}%")
+                  ->orWhere('orders.id', 'like', "%{$search}%")
+                  // Search formatted ID (e.g., 0001)
+                  ->orWhereRaw("LPAD(orders.id, 4, '0') LIKE ?", ["%{$search}%"]);
         });
     }
 
@@ -47,9 +49,10 @@ class OrderController extends Controller
     // Format each order
     $orders->getCollection()->transform(function ($order) {
         $order->payment_image_url = $order->payment && $order->payment->payment_image
-            ? asset('storage/'.$order->payment->payment_image)
+            ? asset('storage/' . $order->payment->payment_image)
             : null;
 
+        // 4-digit formatted ID
         $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
 
         return $order;
@@ -57,6 +60,7 @@ class OrderController extends Controller
 
     return response()->json($orders);
 }
+
 
 
     public function store(Request $request)
