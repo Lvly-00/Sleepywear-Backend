@@ -24,40 +24,39 @@ class CollectionController extends Controller
         return $number.$suffix.' Collection';
     }
 
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search');
+  public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search');
 
-        // Query only this user's collections
-        $query = Collection::with('items')
-            ->where('user_id', auth()->id())
-            ->orderBy('id', 'asc');
+    // Query collections for the authenticated user
+    $query = Collection::with('items')
+        ->where('user_id', auth()->id())
+        ->orderBy('id', 'asc');
 
-        if ($search) {
-            $query->where('name', 'like', "%{$search}%");
-        }
-
-        $collections = $query->paginate($perPage);
-
-        $collections->getCollection()->transform(function ($col) {
-            if (is_numeric($col->name)) {
-                $col->name = $this->ordinal($col->name);
-            }
-
-            $col->stock_qty = $col->items->sum('stock_qty');
-            $col->qty = $col->items->count();
-            $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
-            $col->capital = $col->capital ?? 0;
-            $col->status = $col->items->where('status', 'Available')->count() > 0
-                ? 'Active'
-                : 'Sold Out';
-
-            return $col;
-        });
-
-        return response()->json($collections);
+    // Filter by collection name if search exists
+    if ($search) {
+        $query->where('name', 'like', "%{$search}%");
     }
+
+    // Paginate results and append search term to pagination links
+    $collections = $query->paginate($perPage)->appends(['search' => $search]);
+
+    // Transform each collection for additional info
+    $collections->getCollection()->transform(function ($col) {
+        $col->stock_qty = $col->items->sum('stock_qty');
+        $col->qty = $col->items->count();
+        $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
+        $col->capital = $col->capital ?? 0;
+        $col->status = $col->items->where('status', 'Available')->count() > 0
+            ? 'Active'
+            : 'Sold Out';
+        return $col;
+    });
+
+    return response()->json($collections);
+}
+
 
     public function store(Request $request)
     {
