@@ -11,34 +11,36 @@ class CustomerController extends Controller
      * Display a listing of customers.
      * Supports optional search filtering.
      */
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search');
+   public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search');
 
-        $query = Customer::where('user_id', auth()->id())->orderBy('first_name');
+    $query = Customer::where('user_id', auth()->id())
+        ->orderBy('first_name');
 
-        if ($search) {
-            $searchLower = strtolower($search);
-            $query->where(function ($q) use ($searchLower) {
-                $q->whereRaw('LOWER(first_name) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(contact_number) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(social_handle) LIKE ?', ["%{$searchLower}%"]);
-            });
-        }
+  if ($search) {
+    $searchLower = strtolower($search);
+    $query->where(function ($q) use ($searchLower) {
+        $q->whereRaw('LOWER(first_name) LIKE ?', ["%{$searchLower}%"])
+          ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$searchLower}%"]);
+    });
+}
 
-        $customers = $query->paginate($perPage);
 
-        // Add full_name attribute to each customer in the current page collection
-        $customers->getCollection()->transform(function ($customer) {
-            $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
+    $customers = $query->paginate($perPage);
 
-            return $customer;
-        });
+    // Important: append search query for pagination links
+    $customers->appends(['search' => $search]);
 
-        return response()->json($customers);
-    }
+    // Add full_name attribute
+    $customers->getCollection()->transform(function ($customer) {
+        $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
+        return $customer;
+    });
+
+    return response()->json($customers);
+}
 
     /**
      * Store a newly created customer.
