@@ -19,7 +19,7 @@ class UserSettingsController extends Controller
         }
 
         return response()->json([
-            'name' => $user->business_name ?? '',
+            'name' => $user->name ?? '',
             'email' => $user->email ?? '',
         ], 200);
     }
@@ -38,7 +38,7 @@ class UserSettingsController extends Controller
         ]);
 
         $user->update([
-            'name' => $request->business_name,
+            'name' => $request->name,
             'email' => $request->email,
         ]);
 
