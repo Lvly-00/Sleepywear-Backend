@@ -19,21 +19,29 @@ class AuthController extends Controller
 {
     $this->checkTooManyAttempts($request);
 
-    // Validate the request with custom messages
+    // Validate only format, not existence
     $request->validate([
         'email' => 'required|email',
         'password' => 'required|string',
     ], [
-        'email.required' => 'Email is required.',
-        'email.email' => 'Invalid email address. Please enter a valid email in the format: username@example.com.',
+        'email.required'  => 'Email is required.',
+        'email.email'     => 'Invalid email format. Please use: username@example.com.',
         'password.required' => 'Password is required.',
-
     ]);
 
     $user = User::where('email', $request->email)->first();
 
-    // If user exists but password is wrong
-    if ($user && !Hash::check($request->password, $user->password)) {
+    // If user does not exist
+    if (! $user) {
+        RateLimiter::hit($this->throttleKey($request), 60);
+
+        return response()->json([
+            'message' => 'No account found with this email.',
+        ], 401);
+    }
+
+    // If password is wrong
+    if (!Hash::check($request->password, $user->password)) {
         RateLimiter::hit($this->throttleKey($request), 60);
 
         return response()->json([
@@ -41,16 +49,7 @@ class AuthController extends Controller
         ], 401);
     }
 
-    // If user doesn't exist
-    if (! $user) {
-        RateLimiter::hit($this->throttleKey($request), 60);
-
-        return response()->json([
-            'message' => 'Invalid email address. Please enter a valid email in the format: username@example.com.',
-        ], 401);
-    }
-
-    // Clear attempts on successful login
+    // Successful login clears attempts
     RateLimiter::clear($this->throttleKey($request));
 
     $token = $user->createToken('api_token')->plainTextToken;
@@ -61,6 +60,7 @@ class AuthController extends Controller
         'user' => $this->safeUser($user),
     ]);
 }
+
 
 
     /**
