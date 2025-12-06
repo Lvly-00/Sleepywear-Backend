@@ -14,51 +14,48 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
- public function index(Request $request)
-{
-    $perPage = 10;
-    $page = $request->query('page', 1);
-    $search = $request->query('search');
+    public function index(Request $request)
+    {
+        $perPage = 10;
+        $page = $request->query('page', 1);
+        $search = $request->query('search');
 
-    // Base query: orders for authenticated user
-    $ordersQuery = Order::with(['items', 'payment'])
-        ->where('orders.user_id', auth()->id())
-        ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-        ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')  // Join customers
-        ->select('orders.*')
-        ->orderByRaw("
+        // Base query: orders for authenticated user
+        $ordersQuery = Order::with(['items', 'payment'])
+            ->where('orders.user_id', auth()->id())
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')  // Join customers
+            ->select('orders.*')
+            ->orderByRaw("
             CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
             CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
             CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
         ");
 
-    if ($search) {
-        $ordersQuery->where(function ($query) use ($search) {
-            $query->where('customers.first_name', 'like', "%{$search}%")    // search customer first name
-                  ->orWhere('customers.last_name', 'like', "%{$search}%")  // search customer last name
-                  ->orWhere('orders.id', 'like', "%{$search}%")
-                  ->orWhereRaw("LPAD(orders.id, 4, '0') LIKE ?", ["%{$search}%"]);
+        if ($search) {
+            $ordersQuery->where(function ($query) use ($search) {
+                $query->where('customers.first_name', 'like', "%{$search}%")    // search customer first name
+                    ->orWhere('customers.last_name', 'like', "%{$search}%")  // search customer last name
+                    ->orWhere('orders.id', 'like', "%{$search}%")
+                    ->orWhereRaw("LPAD(orders.id, 4, '0') LIKE ?", ["%{$search}%"]);
+            });
+        }
+
+        $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
+            ->appends(['search' => $search]);
+
+        $orders->getCollection()->transform(function ($order) {
+            $order->payment_image_url = $order->payment && $order->payment->payment_image
+                ? asset('storage/'.$order->payment->payment_image)
+                : null;
+
+            $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
+            return $order;
         });
+
+        return response()->json($orders);
     }
-
-    $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
-        ->appends(['search' => $search]);
-
-    $orders->getCollection()->transform(function ($order) {
-        $order->payment_image_url = $order->payment && $order->payment->payment_image
-            ? asset('storage/' . $order->payment->payment_image)
-            : null;
-
-        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
-
-        return $order;
-    });
-
-    return response()->json($orders);
-}
-
-
-
 
     public function store(Request $request)
     {

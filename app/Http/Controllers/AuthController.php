@@ -15,53 +15,51 @@ class AuthController extends Controller
     /**
      * Login
      */
-   public function login(Request $request)
-{
-    $this->checkTooManyAttempts($request);
+    public function login(Request $request)
+    {
+        $this->checkTooManyAttempts($request);
 
-    // Validate only format, not existence
-    $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|string',
-    ], [
-        'email.required'  => 'Email is required.',
-        'email.email'     => 'Invalid email format. Please use: username@example.com.',
-        'password.required' => 'Password is required.',
-    ]);
+        // Validate only format, not existence
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ], [
+            'email.required' => 'Email is required.',
+            'email.email' => 'Invalid email format. Please use: username@example.com.',
+            'password.required' => 'Password is required.',
+        ]);
 
-    $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
 
-    // If user does not exist
-    if (! $user) {
-        RateLimiter::hit($this->throttleKey($request), 60);
+        // If user does not exist
+        if (! $user) {
+            RateLimiter::hit($this->throttleKey($request), 60);
+
+            return response()->json([
+                'message' => 'No account found with this email.',
+            ], 401);
+        }
+
+        // If password is wrong
+        if (! Hash::check($request->password, $user->password)) {
+            RateLimiter::hit($this->throttleKey($request), 60);
+
+            return response()->json([
+                'message' => 'Your password is incorrect.',
+            ], 401);
+        }
+
+        // Successful login clears attempts
+        RateLimiter::clear($this->throttleKey($request));
+
+        $token = $user->createToken('api_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'No account found with this email.',
-        ], 401);
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $this->safeUser($user),
+        ]);
     }
-
-    // If password is wrong
-    if (!Hash::check($request->password, $user->password)) {
-        RateLimiter::hit($this->throttleKey($request), 60);
-
-        return response()->json([
-            'message' => 'Your password is incorrect.',
-        ], 401);
-    }
-
-    // Successful login clears attempts
-    RateLimiter::clear($this->throttleKey($request));
-
-    $token = $user->createToken('api_token')->plainTextToken;
-
-    return response()->json([
-        'access_token' => $token,
-        'token_type' => 'Bearer',
-        'user' => $this->safeUser($user),
-    ]);
-}
-
-
 
     /**
      * Generates a secure user output
@@ -87,24 +85,23 @@ class AuthController extends Controller
      * Blocking brute force attempts
      */
     protected function checkTooManyAttempts(Request $request)
-{
-    $throttleKey = $this->throttleKey($request);
+    {
+        $throttleKey = $this->throttleKey($request);
 
-    if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
-        $seconds = RateLimiter::availableIn($throttleKey);
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
 
-        $message = "Too many login attempts. Try again in {$seconds} seconds. ";
-        $message .= "Forgot your password? You can <a href='/password/reset'>reset it here</a>.";
+            $message = "Too many login attempts. Try again in {$seconds} seconds. ";
+            $message .= "Forgot your password? You can <a href='/password/reset'>reset it here</a>.";
 
-        // Use response()->json for API or abort with HTML for web
-        if ($request->wantsJson()) {
-            return response()->json(['error' => $message], 429);
+            // Use response()->json for API or abort with HTML for web
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $message], 429);
+            }
+
+            abort(429, $message);
         }
-
-        abort(429, $message);
     }
-}
-
 
     /**
      * Logout
