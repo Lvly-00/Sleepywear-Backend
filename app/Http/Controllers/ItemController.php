@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Collection;
 use App\Models\Item;
 use Illuminate\Http\Request;
-use Cloudinary\Cloudinary; // Use the native SDK class
+use Cloudinary\Cloudinary;
 use Cloudinary\Transformation\Resize;
 
 class ItemController extends Controller
@@ -13,15 +13,15 @@ class ItemController extends Controller
     // Helper function to get a configured Cloudinary instance
     private function getCloudinary()
     {
-        // We configure it directly here to avoid config file issues
+        // Use config() instead of env(). This is safe for caching.
         return new Cloudinary([
             'cloud' => [
-                'cloud_name' => env('CLOUDINARY_CLOUD_NAME', 'dz0q8u0ia'),
-                'api_key'    => env('CLOUDINARY_API_KEY', '319824648841688'),
-                'api_secret' => env('CLOUDINARY_API_SECRET', 'UGnTJAVQxU-kS1mdvmgMTTpate0'),
+                'cloud_name' => config('services.cloudinary.cloud_name'),
+                'api_key'    => config('services.cloudinary.api_key'),
+                'api_secret' => config('services.cloudinary.api_secret'),
             ],
             'url' => [
-                'secure' => true // Force HTTPS
+                'secure' => true
             ]
         ]);
     }
@@ -34,17 +34,20 @@ class ItemController extends Controller
             return response()->json(['error' => 'collection_id is required'], 400);
         }
 
+        // Get cloud name dynamically for URL construction
+        $cloudName = config('services.cloudinary.cloud_name');
+
         $items = Item::where('collection_id', $collectionId)
             ->where('user_id', auth()->id())
             ->with('collection')
             ->get()
-            ->map(function ($item) {
+            ->map(function ($item) use ($cloudName) { // Pass cloudName to closure
                 $item->collection_name = $item->collection?->name ?? 'N/A';
                 $item->is_available = $item->status === 'Available';
 
-                // Construct URL manually if it's a public ID
+                // Construct URL dynamically
                 if ($item->image && !str_starts_with($item->image, 'http')) {
-                    $item->image_url = "https://res.cloudinary.com/dz0q8u0ia/image/upload/" . $item->image;
+                    $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/" . $item->image;
                 } else {
                     $item->image_url = $item->image;
                 }
@@ -82,11 +85,13 @@ class ItemController extends Controller
             return response()->json(['message' => 'Item not found'], 404);
         }
 
+        $cloudName = config('services.cloudinary.cloud_name');
+
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
 
         if ($item->image && !str_starts_with($item->image, 'http')) {
-            $item->image_url = "https://res.cloudinary.com/dz0q8u0ia/image/upload/" . $item->image;
+            $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/" . $item->image;
         } else {
             $item->image_url = $item->image;
         }
@@ -126,7 +131,6 @@ class ItemController extends Controller
         $code = $collectionNumber.'-'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
         try {
-            // DIRECT UPLOAD using Native SDK
             $cloudinary = $this->getCloudinary();
             $uploadedFile = $request->file('image');
 
@@ -134,7 +138,6 @@ class ItemController extends Controller
                 'folder' => 'items',
             ]);
 
-            // Extract Public ID and URL from result
             $publicId = $result['public_id'];
             $secureUrl = $result['secure_url'];
 
@@ -187,7 +190,6 @@ class ItemController extends Controller
         if ($request->hasFile('image')) {
             $cloudinary = $this->getCloudinary();
 
-            // 1. Delete old image
             if ($item->image && !str_starts_with($item->image, 'http')) {
                 try {
                     $cloudinary->uploadApi()->destroy($item->image);
@@ -196,7 +198,6 @@ class ItemController extends Controller
                 }
             }
 
-            // 2. Upload new image
             try {
                 $uploadedFile = $request->file('image');
                 $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
@@ -220,8 +221,10 @@ class ItemController extends Controller
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
 
+        $cloudName = config('services.cloudinary.cloud_name');
+
         if ($item->image && !str_starts_with($item->image, 'http')) {
-            $item->image_url = "https://res.cloudinary.com/dz0q8u0ia/image/upload/" . $item->image;
+            $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/" . $item->image;
         } else {
             $item->image_url = $item->image;
         }
