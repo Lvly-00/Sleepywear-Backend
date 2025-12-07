@@ -5,10 +5,27 @@ namespace App\Http\Controllers;
 use App\Models\Collection;
 use App\Models\Item;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Cloudinary\Cloudinary; // Use the native SDK class
+use Cloudinary\Transformation\Resize;
 
 class ItemController extends Controller
 {
+    // Helper function to get a configured Cloudinary instance
+    private function getCloudinary()
+    {
+        // We configure it directly here to avoid config file issues
+        return new Cloudinary([
+            'cloud' => [
+                'cloud_name' => env('CLOUDINARY_CLOUD_NAME', 'dz0q8u0ia'),
+                'api_key'    => env('CLOUDINARY_API_KEY', '319824648841688'),
+                'api_secret' => env('CLOUDINARY_API_SECRET', 'UGnTJAVQxU-kS1mdvmgMTTpate0'),
+            ],
+            'url' => [
+                'secure' => true // Force HTTPS
+            ]
+        ]);
+    }
+
     public function index(Request $request)
     {
         $collectionId = $request->query('collection_id');
@@ -17,15 +34,20 @@ class ItemController extends Controller
             return response()->json(['error' => 'collection_id is required'], 400);
         }
 
-        // Filter items by authenticated user to prevent data leaks
         $items = Item::where('collection_id', $collectionId)
-            ->where('user_id', auth()->id()) // <-- filter by current user
+            ->where('user_id', auth()->id())
             ->with('collection')
             ->get()
             ->map(function ($item) {
                 $item->collection_name = $item->collection?->name ?? 'N/A';
                 $item->is_available = $item->status === 'Available';
-                $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+
+                // Construct URL manually if it's a public ID
+                if ($item->image && !str_starts_with($item->image, 'http')) {
+                    $item->image_url = "https://res.cloudinary.com/dz0q8u0ia/image/upload/" . $item->image;
+                } else {
+                    $item->image_url = $item->image;
+                }
 
                 return $item;
             })
@@ -45,7 +67,6 @@ class ItemController extends Controller
                 if ($aStatus === 1 && $bStatus === 1) {
                     return $a->created_at <=> $b->created_at;
                 }
-
                 return $a->updated_at <=> $b->updated_at;
             })
             ->values();
@@ -57,13 +78,18 @@ class ItemController extends Controller
     {
         $item = Item::with('collection')->find($id);
 
-        if (! $item || $item->user_id !== auth()->id()) { // protect access
+        if (! $item || $item->user_id !== auth()->id()) {
             return response()->json(['message' => 'Item not found'], 404);
         }
 
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
-        $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+
+        if ($item->image && !str_starts_with($item->image, 'http')) {
+            $item->image_url = "https://res.cloudinary.com/dz0q8u0ia/image/upload/" . $item->image;
+        } else {
+            $item->image_url = $item->image;
+        }
 
         return response()->json($item);
     }
@@ -78,7 +104,6 @@ class ItemController extends Controller
             'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        // Verify collection belongs to current user
         $collection = Collection::where('id', $validated['collection_id'])
             ->where('user_id', auth()->id())
             ->first();
@@ -87,7 +112,6 @@ class ItemController extends Controller
             return response()->json(['error' => 'Collection not found or access denied'], 404);
         }
 
-        // Extract number from collection name, fallback to collection ID
         preg_match('/\d+/', $collection->name, $matches);
         $collectionNumber = str_pad($matches[0] ?? $collection->id, 2, '0', STR_PAD_LEFT);
 
@@ -101,30 +125,45 @@ class ItemController extends Controller
 
         $code = $collectionNumber.'-'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
-        $path = $request->file('image')->store('items', 'public');
+        try {
+            // DIRECT UPLOAD using Native SDK
+            $cloudinary = $this->getCloudinary();
+            $uploadedFile = $request->file('image');
+
+            $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
+                'folder' => 'items',
+            ]);
+
+            // Extract Public ID and URL from result
+            $publicId = $result['public_id'];
+            $secureUrl = $result['secure_url'];
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Image upload failed: ' . $e->getMessage()], 500);
+        }
 
         $item = Item::create([
             'collection_id' => $collection->id,
-            'user_id' => auth()->id(), // <-- save current user ID here
+            'user_id' => auth()->id(),
             'code' => $code,
             'name' => $validated['name'],
             'price' => $validated['price'],
             'status' => 'Available',
             'capital' => $validated['capital'] ?? 0,
-            'image' => $path,
+            'image' => $publicId,
         ]);
 
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = true;
-        $item->image_url = asset('storage/'.$item->image);
+        $item->image_url = $secureUrl;
 
         return response()->json($item, 201);
     }
 
     public function update(Request $request, Item $item)
     {
-        if ($item->user_id !== auth()->id()) { // protect update
+        if ($item->user_id !== auth()->id()) {
             return response()->json(['message' => 'Not found'], 404);
         }
 
@@ -137,7 +176,6 @@ class ItemController extends Controller
             'status' => 'nullable|string|in:Available,Sold Out',
         ]);
 
-        // Verify collection belongs to current user
         $collection = Collection::where('id', $validated['collection_id'])
             ->where('user_id', auth()->id())
             ->first();
@@ -147,11 +185,27 @@ class ItemController extends Controller
         }
 
         if ($request->hasFile('image')) {
-            if ($item->image && Storage::disk('public')->exists($item->image)) {
-                Storage::disk('public')->delete($item->image);
+            $cloudinary = $this->getCloudinary();
+
+            // 1. Delete old image
+            if ($item->image && !str_starts_with($item->image, 'http')) {
+                try {
+                    $cloudinary->uploadApi()->destroy($item->image);
+                } catch (\Exception $e) {
+                    // ignore
+                }
             }
-            $path = $request->file('image')->store('items', 'public');
-            $item->image = $path;
+
+            // 2. Upload new image
+            try {
+                $uploadedFile = $request->file('image');
+                $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
+                    'folder' => 'items',
+                ]);
+                $item->image = $result['public_id'];
+            } catch (\Exception $e) {
+                return response()->json(['error' => 'Image upload failed'], 500);
+            }
         }
 
         $item->update([
@@ -165,19 +219,29 @@ class ItemController extends Controller
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
-        $item->image_url = $item->image ? asset('storage/'.$item->image) : null;
+
+        if ($item->image && !str_starts_with($item->image, 'http')) {
+            $item->image_url = "https://res.cloudinary.com/dz0q8u0ia/image/upload/" . $item->image;
+        } else {
+            $item->image_url = $item->image;
+        }
 
         return response()->json($item);
     }
 
     public function destroy(Item $item)
     {
-        if ($item->user_id !== auth()->id()) { // protect delete
+        if ($item->user_id !== auth()->id()) {
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        if ($item->image && Storage::disk('public')->exists($item->image)) {
-            Storage::disk('public')->delete($item->image);
+        if ($item->image && !str_starts_with($item->image, 'http')) {
+            try {
+                $cloudinary = $this->getCloudinary();
+                $cloudinary->uploadApi()->destroy($item->image);
+            } catch (\Exception $e) {
+                // ignore
+            }
         }
 
         $item->delete();

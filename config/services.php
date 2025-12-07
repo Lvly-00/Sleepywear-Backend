@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'cloudinary' => [
+        'cloud_name' => env('CLOUDINARY_CLOUD_NAME', 'dz0q8u0ia'),
+        'api_key' => env('CLOUDINARY_API_KEY', '319824648841688'),
+        'api_secret' => env('CLOUDINARY_API_SECRET', 'YUGnTJAVQxU-kS1mdvmgMTTpate0'),
+    ],
 
 ];
