@@ -4,26 +4,40 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB; // Import DB Facade
 
 class CustomerController extends Controller
 {
     /**
      * Display a listing of customers.
-     * Supports optional search filtering.
      */
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search');
 
+        // 1. Detect Database Driver to choose correct SQL syntax
+        $driver = DB::connection()->getDriverName();
+
+        // Define SQL syntax based on driver
+        if ($driver === 'sqlite') {
+            // SQLite syntax
+            $fullNameSql = "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))";
+        } else {
+            // MySQL / PostgreSQL syntax
+            $fullNameSql = "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
+        }
+
         $query = Customer::where('user_id', auth()->id())
             ->orderBy('first_name');
 
         if ($search) {
-            $searchLower = strtolower($search);
-            $query->where(function ($q) use ($searchLower) {
-                $q->whereRaw('LOWER(first_name) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$searchLower}%"]);
+            $query->where(function ($q) use ($search, $fullNameSql) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  // Search by Full Name (Driver agnostic)
+                  ->orWhereRaw("{$fullNameSql} LIKE ?", ["%{$search}%"])
+                  ->orWhere('contact_number', 'like', "%{$search}%");
             });
         }
 
@@ -35,7 +49,6 @@ class CustomerController extends Controller
         // Add full_name attribute
         $customers->getCollection()->transform(function ($customer) {
             $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
-
             return $customer;
         });
 
