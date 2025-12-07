@@ -15,69 +15,85 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     public function index(Request $request)
-    {
-        $perPage = 10;
-        $page = $request->query('page', 1);
-        $search = $request->query('search');
+{
+    $perPage = 10;
+    $page = $request->query('page', 1);
+    $search = $request->query('search');
 
-        // 1. Detect Database Driver to choose correct SQL syntax
-        $driver = DB::connection()->getDriverName();
+    // 1. Get Driver
+    $driver = DB::connection()->getDriverName(); // 'mysql', 'pgsql', 'sqlite'
 
-        // Define SQL syntax based on driver (SQLite vs MySQL)
-        if ($driver === 'sqlite') {
-            // SQLite syntax
-            $fullNameSql = "(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, ''))";
-            $formattedIdSql = "printf('%04d', orders.id)";
-        } else {
-            // MySQL / PostgreSQL syntax
-            $fullNameSql = "CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, ''))";
-            $formattedIdSql = "LPAD(orders.id, 4, '0')";
-        }
+    // 2. Base Query
+    $ordersQuery = Order::with(['items', 'payment'])
+        ->where('orders.user_id', auth()->id())
+        ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+        ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+        ->select('orders.*')
+        ->orderByRaw("
+            CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
+            CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
+            CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
+        ");
 
-        // 2. Base Query
-        $ordersQuery = Order::with(['items', 'payment'])
-            ->where('orders.user_id', auth()->id())
-            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
-            ->select('orders.*')
-            ->orderByRaw("
-                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-            ");
+    // 3. Search Logic (Driver Specific)
+    if ($search) {
+        $ordersQuery->where(function ($query) use ($search, $driver) {
 
-        // 3. Search Logic
-        if ($search) {
-            $ordersQuery->where(function ($query) use ($search, $fullNameSql, $formattedIdSql) {
-                $query->where('customers.first_name', 'like', "%{$search}%")
-                    ->orWhere('customers.last_name', 'like', "%{$search}%")
-                    // Search by Full Name (Driver agnostic)
-                    ->orWhereRaw("{$fullNameSql} LIKE ?", ["%{$search}%"])
-                    // Search by Raw ID
-                    ->orWhere('orders.id', 'like', "%{$search}%")
-                    // Search by Formatted ID (0001) (Driver agnostic)
-                    ->orWhereRaw("{$formattedIdSql} LIKE ?", ["%{$search}%"]);
-            });
-        }
+            // --- PostgreSQL Strategy (Strict Types & Case Sensitivity) ---
+            if ($driver === 'pgsql') {
+                $query->where('customers.first_name', 'ILIKE', "%{$search}%")
+                      ->orWhere('customers.last_name', 'ILIKE', "%{$search}%")
+                      // Full Name Search
+                      ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) ILIKE ?", ["%{$search}%"])
+                      // ID Search (Must cast to TEXT first)
+                      ->orWhereRaw("CAST(orders.id AS TEXT) ILIKE ?", ["%{$search}%"])
+                      // Formatted ID Search (0001)
+                      ->orWhereRaw("LPAD(CAST(orders.id AS TEXT), 4, '0') ILIKE ?", ["%{$search}%"]);
+            }
 
-        // 4. Pagination
-        $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
-            ->appends(['search' => $search]);
+            // --- SQLite Strategy (Pipe Concatenation) ---
+            elseif ($driver === 'sqlite') {
+                $query->where('customers.first_name', 'LIKE', "%{$search}%")
+                      ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
+                      // Full Name Search (Uses ||)
+                      ->orWhereRaw("(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
+                      // ID Search
+                      ->orWhereRaw("CAST(orders.id AS TEXT) LIKE ?", ["%{$search}%"])
+                      // Formatted ID Search
+                      ->orWhereRaw("printf('%04d', orders.id) LIKE ?", ["%{$search}%"]);
+            }
 
-        // 5. Transform for Frontend
-        $orders->getCollection()->transform(function ($order) {
-            $order->payment_image_url = $order->payment && $order->payment->payment_image
-                ? asset('storage/'.$order->payment->payment_image)
-                : null;
-
-            $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
-
-            return $order;
+            // --- MySQL / MariaDB Strategy (Default) ---
+            else {
+                $query->where('customers.first_name', 'LIKE', "%{$search}%")
+                      ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
+                      // Full Name Search
+                      ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
+                      // ID Search (MySQL handles int-to-string auto-magic)
+                      ->orWhere('orders.id', 'LIKE', "%{$search}%")
+                      // Formatted ID Search
+                      ->orWhereRaw("LPAD(orders.id, 4, '0') LIKE ?", ["%{$search}%"]);
+            }
         });
-
-        return response()->json($orders);
     }
 
+    // 4. Pagination
+    $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
+        ->appends(['search' => $search]);
+
+    // 5. Transform
+    $orders->getCollection()->transform(function ($order) {
+        $order->payment_image_url = $order->payment && $order->payment->payment_image
+            ? asset('storage/'.$order->payment->payment_image)
+            : null;
+
+        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+
+        return $order;
+    });
+
+    return response()->json($orders);
+}
     public function store(Request $request)
     {
         try {

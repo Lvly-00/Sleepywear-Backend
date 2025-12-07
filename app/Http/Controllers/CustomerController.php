@@ -12,49 +12,62 @@ class CustomerController extends Controller
      * Display a listing of customers.
      */
     public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search');
+{
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search');
 
-        // 1. Detect Database Driver to choose correct SQL syntax
-        $driver = DB::connection()->getDriverName();
+    // 1. Detect Database Driver
+    $driver = DB::connection()->getDriverName(); // 'mysql', 'pgsql', 'sqlite'
 
-        // Define SQL syntax based on driver
-        if ($driver === 'sqlite') {
-            // SQLite syntax
-            $fullNameSql = "(COALESCE(first_name, '') || ' ' || COALESCE(last_name, ''))";
-        } else {
-            // MySQL / PostgreSQL syntax
-            $fullNameSql = "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))";
-        }
+    $query = Customer::where('user_id', auth()->id())
+        ->orderBy('first_name');
 
-        $query = Customer::where('user_id', auth()->id())
-            ->orderBy('first_name');
+    if ($search) {
+        $query->where(function ($q) use ($search, $driver) {
 
-        if ($search) {
-            $query->where(function ($q) use ($search, $fullNameSql) {
-                $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  // Search by Full Name (Driver agnostic)
-                  ->orWhereRaw("{$fullNameSql} LIKE ?", ["%{$search}%"])
-                  ->orWhere('contact_number', 'like', "%{$search}%");
-            });
-        }
+            // --- PostgreSQL Strategy (Deployment) ---
+            if ($driver === 'pgsql') {
+                // Use ILIKE for case-insensitive search
+                $q->where('first_name', 'ILIKE', "%{$search}%")
+                  ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                  // Postgres Concatenation
+                  ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) ILIKE ?", ["%{$search}%"])
+                  ->orWhere('contact_number', 'ILIKE', "%{$search}%");
+            }
 
-        $customers = $query->paginate($perPage);
+            // --- SQLite Strategy (Local/Testing) ---
+            elseif ($driver === 'sqlite') {
+                // SQLite uses || for concatenation
+                $q->where('first_name', 'LIKE', "%{$search}%")
+                  ->orWhere('last_name', 'LIKE', "%{$search}%")
+                  ->orWhereRaw("(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
+                  ->orWhere('contact_number', 'LIKE', "%{$search}%");
+            }
 
-        // Important: append search query for pagination links
-        $customers->appends(['search' => $search]);
-
-        // Add full_name attribute
-        $customers->getCollection()->transform(function ($customer) {
-            $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
-            return $customer;
+            // --- MySQL / MariaDB Strategy (Default) ---
+            else {
+                // MySQL uses CONCAT and is case-insensitive by default
+                $q->where('first_name', 'LIKE', "%{$search}%")
+                  ->orWhere('last_name', 'LIKE', "%{$search}%")
+                  ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
+                  ->orWhere('contact_number', 'LIKE', "%{$search}%");
+            }
         });
-
-        return response()->json($customers);
     }
 
+    $customers = $query->paginate($perPage);
+
+    // Important: append search query for pagination links
+    $customers->appends(['search' => $search]);
+
+    // Add full_name attribute
+    $customers->getCollection()->transform(function ($customer) {
+        $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
+        return $customer;
+    });
+
+    return response()->json($customers);
+}
     /**
      * Store a newly created customer.
      */

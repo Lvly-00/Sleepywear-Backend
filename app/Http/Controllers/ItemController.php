@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Collection;
 use App\Models\Item;
-use Illuminate\Http\Request;
 use Cloudinary\Cloudinary;
-use Cloudinary\Transformation\Resize;
+use Illuminate\Http\Request;
 
 class ItemController extends Controller
 {
@@ -17,12 +16,12 @@ class ItemController extends Controller
         return new Cloudinary([
             'cloud' => [
                 'cloud_name' => config('services.cloudinary.cloud_name'),
-                'api_key'    => config('services.cloudinary.api_key'),
+                'api_key' => config('services.cloudinary.api_key'),
                 'api_secret' => config('services.cloudinary.api_secret'),
             ],
             'url' => [
-                'secure' => true
-            ]
+                'secure' => true,
+            ],
         ]);
     }
 
@@ -46,8 +45,8 @@ class ItemController extends Controller
                 $item->is_available = $item->status === 'Available';
 
                 // Construct URL dynamically
-                if ($item->image && !str_starts_with($item->image, 'http')) {
-                    $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/" . $item->image;
+                if ($item->image && ! str_starts_with($item->image, 'http')) {
+                    $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
                 } else {
                     $item->image_url = $item->image;
                 }
@@ -70,6 +69,7 @@ class ItemController extends Controller
                 if ($aStatus === 1 && $bStatus === 1) {
                     return $a->created_at <=> $b->created_at;
                 }
+
                 return $a->updated_at <=> $b->updated_at;
             })
             ->values();
@@ -90,8 +90,8 @@ class ItemController extends Controller
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = $item->status === 'Available';
 
-        if ($item->image && !str_starts_with($item->image, 'http')) {
-            $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/" . $item->image;
+        if ($item->image && ! str_starts_with($item->image, 'http')) {
+            $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
         } else {
             $item->image_url = $item->image;
         }
@@ -142,7 +142,7 @@ class ItemController extends Controller
             $secureUrl = $result['secure_url'];
 
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Image upload failed: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Image upload failed: '.$e->getMessage()], 500);
         }
 
         $item = Item::create([
@@ -190,7 +190,7 @@ class ItemController extends Controller
         if ($request->hasFile('image')) {
             $cloudinary = $this->getCloudinary();
 
-            if ($item->image && !str_starts_with($item->image, 'http')) {
+            if ($item->image && ! str_starts_with($item->image, 'http')) {
                 try {
                     $cloudinary->uploadApi()->destroy($item->image);
                 } catch (\Exception $e) {
@@ -223,8 +223,8 @@ class ItemController extends Controller
 
         $cloudName = config('services.cloudinary.cloud_name');
 
-        if ($item->image && !str_starts_with($item->image, 'http')) {
-            $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/" . $item->image;
+        if ($item->image && ! str_starts_with($item->image, 'http')) {
+            $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
         } else {
             $item->image_url = $item->image;
         }
@@ -238,7 +238,7 @@ class ItemController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        if ($item->image && !str_starts_with($item->image, 'http')) {
+        if ($item->image && ! str_starts_with($item->image, 'http')) {
             try {
                 $cloudinary = $this->getCloudinary();
                 $cloudinary->uploadApi()->destroy($item->image);
