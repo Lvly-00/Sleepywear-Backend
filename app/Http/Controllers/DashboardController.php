@@ -19,8 +19,8 @@ class DashboardController extends Controller
             // ───────────────────────────────────────────────
             $totalRevenue = CollectionSalesSummary::where('user_id', $userId)->sum('total_sales');
             $totalItemsSold = CollectionSalesSummary::where('user_id', $userId)->sum('total_items_sold');
-            $totalCustomers = Order::where('user_id', $userId)
-                ->distinct('customer_id')
+           $totalCustomers = Order::where('user_id', $userId)
+                ->distinct()
                 ->count('customer_id');
             $grossIncome = $totalRevenue;
 
