@@ -20,30 +20,51 @@ class OrderController extends Controller
         $page = $request->query('page', 1);
         $search = $request->query('search');
 
-        // Base query: orders for authenticated user
+        // 1. Detect Database Driver to choose correct SQL syntax
+        $driver = DB::connection()->getDriverName();
+
+        // Define SQL syntax based on driver (SQLite vs MySQL)
+        if ($driver === 'sqlite') {
+            // SQLite syntax
+            $fullNameSql = "(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, ''))";
+            $formattedIdSql = "printf('%04d', orders.id)";
+        } else {
+            // MySQL / PostgreSQL syntax
+            $fullNameSql = "CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, ''))";
+            $formattedIdSql = "LPAD(orders.id, 4, '0')";
+        }
+
+        // 2. Base Query
         $ordersQuery = Order::with(['items', 'payment'])
             ->where('orders.user_id', auth()->id())
             ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')  // Join customers
+            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
             ->select('orders.*')
             ->orderByRaw("
-            CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-            CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-            CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-        ");
+                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
+                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
+                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
+            ");
 
+        // 3. Search Logic
         if ($search) {
-            $ordersQuery->where(function ($query) use ($search) {
-                $query->where('customers.first_name', 'like', "%{$search}%")    // search customer first name
-                    ->orWhere('customers.last_name', 'like', "%{$search}%")  // search customer last name
+            $ordersQuery->where(function ($query) use ($search, $fullNameSql, $formattedIdSql) {
+                $query->where('customers.first_name', 'like', "%{$search}%")
+                    ->orWhere('customers.last_name', 'like', "%{$search}%")
+                    // Search by Full Name (Driver agnostic)
+                    ->orWhereRaw("{$fullNameSql} LIKE ?", ["%{$search}%"])
+                    // Search by Raw ID
                     ->orWhere('orders.id', 'like', "%{$search}%")
-                    ->orWhereRaw("LPAD(orders.id, 4, '0') LIKE ?", ["%{$search}%"]);
+                    // Search by Formatted ID (0001) (Driver agnostic)
+                    ->orWhereRaw("{$formattedIdSql} LIKE ?", ["%{$search}%"]);
             });
         }
 
+        // 4. Pagination
         $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
             ->appends(['search' => $search]);
 
+        // 5. Transform for Frontend
         $orders->getCollection()->transform(function ($order) {
             $order->payment_image_url = $order->payment && $order->payment->payment_image
                 ? asset('storage/'.$order->payment->payment_image)
