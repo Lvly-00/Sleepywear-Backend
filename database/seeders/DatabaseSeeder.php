@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'SleepyWears',
             'email' => 'lovelypintes@gmail.com',
-            'password' => bcrypt('password'),
+            'password' => bcrypt('P4$$w0rD!_Secure'),
         ]);
 
         // ─── Additional accounts ──────────────────────────────────
@@ -26,7 +26,8 @@ class DatabaseSeeder extends Seeder
             ['name' => 'ToyotaZ', 'email' => 'ruthmayreginos2786@gmail.com'],
             ['name' => 'SamsungZ', 'email' => 'sofiaisabellatina@gmail.com'],
             ['name' => 'GoogleZ', 'email' => 'myriahvielle619@gmail.com'],
-            ['name' => 'Sleepywears', 'email' => 'angelesalyannamarie@gmail.com'],
+            ['name' => 'Sleepywears1', 'email' => 'angelesalyannamarie@gmail.com'],
+            ['name' => 'Sleepywears', 'email' => 'sleepywears.ph1@gmail.com'],
 
             // ─── Instructors accounts ────────────────────────────────
             ['name' => 'Elmer', 'email' => 'elmeralvarado@laverdad.edu.ph'],
@@ -38,7 +39,7 @@ class DatabaseSeeder extends Seeder
             User::create([
                 'name' => $user['name'],
                 'email' => $user['email'],
-                'password' => bcrypt('password'),
+                'password' => bcrypt('P4$$w0rD!_Secure'),
             ]);
         }
 

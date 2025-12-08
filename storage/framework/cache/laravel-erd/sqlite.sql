@@ -1,5 +1,6 @@
 CREATE TABLE collection_sales_summary (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    user_id integer(11) NOT NULL,
     collection_id integer(11),
     collection_name varchar(255) NOT NULL,
     collection_capital numeric NOT NULL,
@@ -13,6 +14,7 @@ CREATE TABLE collection_sales_summary (
 )
 CREATE TABLE collections (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    user_id integer(11) NOT NULL,
     name varchar(255) NOT NULL,
     release_date date,
     qty integer(11) NOT NULL,
@@ -26,6 +28,7 @@ CREATE TABLE collections (
 )
 CREATE TABLE customers (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    user_id integer(11) NOT NULL,
     first_name varchar(255) NOT NULL,
     last_name varchar(255) NOT NULL,
     address text NOT NULL,
@@ -37,6 +40,7 @@ CREATE TABLE customers (
 )
 CREATE TABLE invoices (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    user_id integer(11) NOT NULL,
     order_id integer(11) NOT NULL,
     total integer(11) NOT NULL,
     status varchar(255) NOT NULL DEFAULT Draft,
@@ -46,11 +50,13 @@ CREATE TABLE invoices (
 )
 CREATE TABLE items (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    user_id integer(11) NOT NULL,
     collection_id integer(11) NOT NULL,
     code varchar(255) NOT NULL,
     name varchar(255) NOT NULL,
     image varchar(255),
     price integer(11) NOT NULL,
+    capital integer(11) NOT NULL,
     status varchar(255) NOT NULL DEFAULT Available,
     created_at datetime,
     updated_at datetime,
@@ -61,6 +67,7 @@ CREATE TABLE notifications (
 )
 CREATE TABLE order_items (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    user_id integer(11) NOT NULL,
     order_id integer(11) NOT NULL,
     item_id integer(11) NOT NULL,
     item_name varchar(255) NOT NULL,
@@ -73,6 +80,8 @@ CREATE TABLE order_items (
 )
 CREATE TABLE orders (
     id integer(11) NOT NULL AUTO_INCREMENT,
+    order_number integer(11) NOT NULL,
+    user_id integer(11) NOT NULL,
     customer_id integer(11) NOT NULL,
     first_name varchar(255) NOT NULL,
     last_name varchar(255) NOT NULL,
@@ -112,7 +121,6 @@ CREATE TABLE personal_access_tokens (
 CREATE TABLE users (
     id integer(11) NOT NULL AUTO_INCREMENT,
     name varchar(255),
-    business_name varchar(255) NOT NULL,
     email varchar(255) NOT NULL,
     email_verified_at datetime,
     password varchar(255) NOT NULL,
