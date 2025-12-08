@@ -135,7 +135,7 @@ class AuthController extends Controller
         $token = Password::createToken($user);
 
         $resetUrl = env('APP_FRONTEND_URL').
-            "/reset-password?token={$token}&email=".urlencode($user->email);
+            "/passwords/reset?token={$token}&email=".urlencode($user->email);
 
         $sent = BrevoMailer::sendResetLink($user->email, $resetUrl);
 

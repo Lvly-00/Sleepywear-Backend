@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
-    public function storePayment(Request $request, $orderId)
+    public function store(Request $request, $orderId)
     {
         $data = $request->validate([
             'payment_method' => 'required|in:Cash,GCash,Paypal,Bank',

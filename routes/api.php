@@ -18,39 +18,43 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-// Authentication
+// Authentication as a "sessions" resource
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-Route::get('/test-send-email', [AuthController::class, 'testSendEmail']);
+Route::post('/logout', [AuthController::class, 'logout']);
 
-// Public logout route (for now we’ll protect it below)
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+// Passwords as a "passwords" resource
+Route::post('/passwords/forgot', [AuthController::class, 'forgotPassword']);
+Route::post('/passwords/reset', [AuthController::class, 'resetPassword']);
+
+// Test email (optional)
+Route::get('/test-send-email', [AuthController::class, 'testSendEmail']);
 
 /*
 |--------------------------------------------------------------------------
 | Protected Routes (Require Bearer Token)
-|---------------------------------------------------------we-----------------
+|--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Collections & Items
+    // Collections & Items (nested resource)
     Route::apiResource('collections', CollectionController::class);
-    Route::apiResource('items', ItemController::class);
-    Route::get('/collections/{collection}/items', [ItemController::class, 'getByCollection']);
+    Route::apiResource('collections.items', ItemController::class)->shallow();
+    Route::apiResource('items', ItemController::class); // optional standalone
 
-    // Orders, Payments & Invoices
+    // Orders & Payments (nested)
     Route::apiResource('orders', OrderController::class);
+    Route::apiResource('orders.payments', PaymentController::class)->shallow();
     Route::apiResource('order-items', OrderItemController::class);
-    Route::post('/orders/{order}/payment', [PaymentController::class, 'storePayment']);
+
+    // Invoices
     Route::apiResource('invoices', InvoiceController::class);
-    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download']);
+    Route::get('/invoices/{invoice}/file', [InvoiceController::class, 'download']); // RESTful download
 
     // Customers
     Route::apiResource('customers', CustomerController::class);
 
     // Dashboard Summary
-    Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
+    Route::get('/dashboard', [DashboardController::class, 'summary']);
 
     // User Settings
     Route::get('/user/settings', [UserSettingsController::class, 'show']);
