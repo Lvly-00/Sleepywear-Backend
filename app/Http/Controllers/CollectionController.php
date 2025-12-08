@@ -36,7 +36,18 @@ class CollectionController extends Controller
 
         // Filter by collection name if search exists
         if ($search) {
-            $query->where('name', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                // 1. Standard Case-Insensitive Search
+                // This fixes the issue where '2nd collection' wouldn't match '2nd Collection'
+                $q->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($search) . '%']);
+
+                // 2. Smart Number Search
+                // If user searches "2", we also check specifically for "2nd Collection"
+                if (is_numeric($search)) {
+                    $ordinalName = $this->ordinal($search); // Generates "2nd Collection"
+                    $q->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($ordinalName) . '%']);
+                }
+            });
         }
 
         // Paginate results and append search term to pagination links
