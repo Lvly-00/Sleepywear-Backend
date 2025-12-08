@@ -138,18 +138,19 @@ https://sleepywear-backend.onrender.com
 
 ---
 
-## API Documentation (Optional)
-
-You may include either of the following:
-
-* Swagger Documentation:
-  `[Add Swagger link here]`
-
-* Postman Collection:
-  `[Add Postman link here]`
-
----
-
 ## Summary
 
 The **Sleepywears.ph Business Management System** is an automated, web-based solution that modernizes business operations, reduces paperwork, improves accuracy, and enables smarter decision-making through real-time data tracking and reporting.
+
+---
+
+## Contact
+
+For questions, support, or collaboration regarding the **Sleepywears.ph Business Management System**, please contact:
+
+**Project Lead / Full-Stack Developer** Lovely Heart Pintes
+* Email: lovelypintes@gmail.com
+* GitHub: [https://github.com/Lvly-00](https://github.com/Lvly-00)
+
+---
+
