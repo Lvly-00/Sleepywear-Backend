@@ -141,7 +141,7 @@ The **Sleepywears.ph Business Management System** is an automated, web-based sol
 
 For questions, support, or collaboration regarding the **Sleepywears.ph Business Management System**, please contact:
 
-**Project Lead / Full-Stack Developer** Lovely Heart Pintes
+**Full-Stack Developer** Lovely Heart Pintes
 * Email: lovelypintes@gmail.com
 * GitHub: [https://github.com/Lvly-00](https://github.com/Lvly-00)
 
