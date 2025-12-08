@@ -11,7 +11,7 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
-
+        'order_number',
         'customer_id',
         'first_name',
         'last_name',
@@ -22,9 +22,11 @@ class Order extends Model
         'total',
     ];
 
+    protected $appends = ['formatted_id'];
+
     public function getFormattedIdAttribute()
     {
-        return str_pad($this->id, 4, '0', STR_PAD_LEFT);
+        return str_pad($this->order_number, 4, '0', STR_PAD_LEFT);
     }
 
     // Relations

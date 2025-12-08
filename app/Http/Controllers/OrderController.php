@@ -15,85 +15,66 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     public function index(Request $request)
-{
-    $perPage = 10;
-    $page = $request->query('page', 1);
-    $search = $request->query('search');
+    {
+        $perPage = 10;
+        $page = $request->query('page', 1);
+        $search = $request->query('search');
 
-    // 1. Get Driver
-    $driver = DB::connection()->getDriverName(); // 'mysql', 'pgsql', 'sqlite'
+        $driver = DB::connection()->getDriverName();
 
-    // 2. Base Query
-    $ordersQuery = Order::with(['items', 'payment'])
-        ->where('orders.user_id', auth()->id())
-        ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-        ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
-        ->select('orders.*')
-        ->orderByRaw("
-            CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-            CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-            CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-        ");
+        $ordersQuery = Order::with(['items', 'payment'])
+            ->where('orders.user_id', auth()->id())
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+            ->select('orders.*')
+            ->orderByRaw("
+                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
+                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
+                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
+            ");
 
-    // 3. Search Logic (Driver Specific)
-    if ($search) {
-        $ordersQuery->where(function ($query) use ($search, $driver) {
+        if ($search) {
+            $ordersQuery->where(function ($query) use ($search, $driver) {
+                // CHANGED: Search 'order_number' instead of 'id'
+                if ($driver === 'pgsql') {
+                    $query->where('customers.first_name', 'ILIKE', "%{$search}%")
+                        ->orWhere('customers.last_name', 'ILIKE', "%{$search}%")
+                        ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) ILIKE ?", ["%{$search}%"])
+                        ->orWhereRaw('CAST(orders.order_number AS TEXT) ILIKE ?', ["%{$search}%"])
+                        ->orWhereRaw("LPAD(CAST(orders.order_number AS TEXT), 4, '0') ILIKE ?", ["%{$search}%"]);
+                } elseif ($driver === 'sqlite') {
+                    $query->where('customers.first_name', 'LIKE', "%{$search}%")
+                        ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
+                        ->orWhereRaw("(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw('CAST(orders.order_number AS TEXT) LIKE ?', ["%{$search}%"])
+                        ->orWhereRaw("printf('%04d', orders.order_number) LIKE ?", ["%{$search}%"]);
+                } else {
+                    $query->where('customers.first_name', 'LIKE', "%{$search}%")
+                        ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
+                        ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
+                        ->orWhere('orders.order_number', 'LIKE', "%{$search}%")
+                        ->orWhereRaw("LPAD(orders.order_number, 4, '0') LIKE ?", ["%{$search}%"]);
+                }
+            });
+        }
 
-            // --- PostgreSQL Strategy (Strict Types & Case Sensitivity) ---
-            if ($driver === 'pgsql') {
-                $query->where('customers.first_name', 'ILIKE', "%{$search}%")
-                      ->orWhere('customers.last_name', 'ILIKE', "%{$search}%")
-                      // Full Name Search
-                      ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) ILIKE ?", ["%{$search}%"])
-                      // ID Search (Must cast to TEXT first)
-                      ->orWhereRaw("CAST(orders.id AS TEXT) ILIKE ?", ["%{$search}%"])
-                      // Formatted ID Search (0001)
-                      ->orWhereRaw("LPAD(CAST(orders.id AS TEXT), 4, '0') ILIKE ?", ["%{$search}%"]);
-            }
+        $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
+            ->appends(['search' => $search]);
 
-            // --- SQLite Strategy (Pipe Concatenation) ---
-            elseif ($driver === 'sqlite') {
-                $query->where('customers.first_name', 'LIKE', "%{$search}%")
-                      ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
-                      // Full Name Search (Uses ||)
-                      ->orWhereRaw("(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
-                      // ID Search
-                      ->orWhereRaw("CAST(orders.id AS TEXT) LIKE ?", ["%{$search}%"])
-                      // Formatted ID Search
-                      ->orWhereRaw("printf('%04d', orders.id) LIKE ?", ["%{$search}%"]);
-            }
+        $orders->getCollection()->transform(function ($order) {
+            $order->payment_image_url = $order->payment && $order->payment->payment_image
+                ? asset('storage/'.$order->payment->payment_image)
+                : null;
 
-            // --- MySQL / MariaDB Strategy (Default) ---
-            else {
-                $query->where('customers.first_name', 'LIKE', "%{$search}%")
-                      ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
-                      // Full Name Search
-                      ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
-                      // ID Search (MySQL handles int-to-string auto-magic)
-                      ->orWhere('orders.id', 'LIKE', "%{$search}%")
-                      // Formatted ID Search
-                      ->orWhereRaw("LPAD(orders.id, 4, '0') LIKE ?", ["%{$search}%"]);
-            }
+            // CHANGED: Pad order_number, not id
+            $order->formatted_id = str_pad($order->order_number, 4, '0', STR_PAD_LEFT);
+
+            return $order;
         });
+
+        return response()->json($orders);
     }
 
-    // 4. Pagination
-    $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
-        ->appends(['search' => $search]);
-
-    // 5. Transform
-    $orders->getCollection()->transform(function ($order) {
-        $order->payment_image_url = $order->payment && $order->payment->payment_image
-            ? asset('storage/'.$order->payment->payment_image)
-            : null;
-
-        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
-
-        return $order;
-    });
-
-    return response()->json($orders);
-}
     public function store(Request $request)
     {
         try {
@@ -101,7 +82,7 @@ class OrderController extends Controller
                 $customerData = $request->input('customer');
                 $itemsData = $request->input('items');
 
-                // Find or create customer
+                // Customer Logic
                 $customer = isset($customerData['id']) && $customerData['id']
                     ? Customer::findOrFail($customerData['id'])
                     : Customer::create($customerData);
@@ -110,8 +91,16 @@ class OrderController extends Controller
                     $customer->update($customerData);
                 }
 
-                // Create order with user_id
+                // Order Number Logic
+                $lastOrderNumber = Order::where('user_id', auth()->id())
+                    ->lockForUpdate()
+                    ->max('order_number');
+                $nextOrderNumber = $lastOrderNumber ? $lastOrderNumber + 1 : 1;
+
+                // Create Order
                 $order = Order::create([
+                    'user_id' => auth()->id(),
+                    'order_number' => $nextOrderNumber,
                     'customer_id' => $customer->id,
                     'first_name' => $customer->first_name,
                     'last_name' => $customer->last_name,
@@ -119,7 +108,6 @@ class OrderController extends Controller
                     'contact_number' => $customer->contact_number,
                     'social_handle' => $customer->social_handle,
                     'total' => 0,
-                    'user_id' => auth()->id(),
                 ]);
 
                 $orderTotal = 0;
@@ -134,22 +122,21 @@ class OrderController extends Controller
                         'user_id' => auth()->id(),
                     ]);
 
-                    // Update item status to Sold Out
-                    Item::where('id', $itemData['item_id'])->update(['status' => 'Sold Out']);
+                    // UPDATED: Set status to 'Reserved' (Not 'Sold Out' yet)
+                    // This prevents revenue from showing up before payment.
+                    Item::where('id', $itemData['item_id'])->update(['status' => 'Reserved']);
 
                     $orderTotal += $itemData['price'] * ($itemData['quantity'] ?? 1);
                 }
 
                 $order->update(['total' => $orderTotal]);
 
-                // Create initial payment record (unpaid)
                 Payment::create([
                     'order_id' => $order->id,
                     'payment_status' => 'Unpaid',
                     'total_paid' => 0,
                 ]);
 
-                // Create invoice with user_id to avoid NOT NULL error
                 Invoice::create([
                     'order_id' => $order->id,
                     'total' => $orderTotal,
@@ -158,7 +145,7 @@ class OrderController extends Controller
                 ]);
 
                 $order->load(['items', 'payment']);
-                $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+                $order->formatted_id = str_pad($order->order_number, 4, '0', STR_PAD_LEFT);
 
                 return $order;
             });
@@ -172,20 +159,19 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        // Check ownership
         if ($order->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $order->load(['items', 'payment']);
-        $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+        // CHANGED: Use order_number
+        $order->formatted_id = str_pad($order->order_number, 4, '0', STR_PAD_LEFT);
 
         return response()->json($order);
     }
 
     public function update(Request $request, Order $order)
     {
-        // Check ownership
         if ($order->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -206,7 +192,8 @@ class OrderController extends Controller
             }
 
             $order->load(['items', 'payment']);
-            $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+            // CHANGED: Use order_number
+            $order->formatted_id = str_pad($order->order_number, 4, '0', STR_PAD_LEFT);
 
             return response()->json([
                 'message' => 'Order updated',
@@ -220,16 +207,15 @@ class OrderController extends Controller
         }
     }
 
-    public function updateItems(Request $request, Order $order)
+     public function updateItems(Request $request, Order $order)
     {
-        // Check ownership
         if ($order->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             return DB::transaction(function () use ($request, $order) {
-                // Revert old items to available
+                // 1. Revert old items to Available
                 foreach ($order->items as $orderItem) {
                     $item = $orderItem->item;
                     if ($item) {
@@ -237,11 +223,12 @@ class OrderController extends Controller
                     }
                 }
 
-                // Remove existing items
+                // 2. Clear old items
                 $order->items()->delete();
 
                 $orderTotal = 0;
 
+                // 3. Add new items
                 foreach ($request->input('items') as $itemData) {
                     OrderItem::create([
                         'order_id' => $order->id,
@@ -252,8 +239,8 @@ class OrderController extends Controller
                         'user_id' => auth()->id(),
                     ]);
 
-                    // Mark new items as sold out
-                    Item::where('id', $itemData['item_id'])->update(['status' => 'Sold Out']);
+                    // UPDATED: Set to 'Reserved' (Wait for payment to mark Sold Out)
+                    Item::where('id', $itemData['item_id'])->update(['status' => 'Reserved']);
 
                     $orderTotal += $itemData['price'] * ($itemData['quantity'] ?? 1);
                 }
@@ -265,7 +252,7 @@ class OrderController extends Controller
                 }
 
                 $order->load(['items', 'payment']);
-                $order->formatted_id = str_pad($order->id, 4, '0', STR_PAD_LEFT);
+                $order->formatted_id = str_pad($order->order_number, 4, '0', STR_PAD_LEFT);
 
                 return response()->json([
                     'message' => 'Order items updated successfully',
@@ -280,9 +267,9 @@ class OrderController extends Controller
         }
     }
 
+    // destroy method remains the same as in your previous code
     public function destroy(Order $order)
     {
-        // Check ownership
         if ($order->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -290,7 +277,7 @@ class OrderController extends Controller
         DB::beginTransaction();
 
         try {
-            $order->load('invoice', 'payment', 'items'); // ensure relationships are loaded
+            $order->load('invoice', 'payment', 'items');
             $isPaid = $order->payment && $order->payment->payment_status === 'Paid';
 
             if (! $isPaid) {
@@ -300,7 +287,6 @@ class OrderController extends Controller
                         $item->update(['status' => 'Available']);
                     }
                 }
-                // delete invoice if unpaid
                 if ($order->invoice) {
                     $order->invoice->delete();
                 }
@@ -312,7 +298,7 @@ class OrderController extends Controller
                 $order->payment->delete();
             }
 
-            $order->delete(); // now safe, invoice is already handled
+            $order->delete();
 
             DB::commit();
 

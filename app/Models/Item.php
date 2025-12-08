@@ -11,7 +11,6 @@ class Item extends Model
 
     protected $fillable = [
         'user_id',
-
         'collection_id',
         'code',
         'name',

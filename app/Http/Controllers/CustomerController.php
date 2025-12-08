@@ -12,62 +12,64 @@ class CustomerController extends Controller
      * Display a listing of customers.
      */
     public function index(Request $request)
-{
-    $perPage = $request->input('per_page', 10);
-    $search = $request->input('search');
+    {
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search');
 
-    // 1. Detect Database Driver
-    $driver = DB::connection()->getDriverName(); // 'mysql', 'pgsql', 'sqlite'
+        // 1. Detect Database Driver
+        $driver = DB::connection()->getDriverName(); // 'mysql', 'pgsql', 'sqlite'
 
-    $query = Customer::where('user_id', auth()->id())
-        ->orderBy('first_name');
+        $query = Customer::where('user_id', auth()->id())
+            ->orderBy('first_name');
 
-    if ($search) {
-        $query->where(function ($q) use ($search, $driver) {
+        if ($search) {
+            $query->where(function ($q) use ($search, $driver) {
 
-            // --- PostgreSQL Strategy (Deployment) ---
-            if ($driver === 'pgsql') {
-                // Use ILIKE for case-insensitive search
-                $q->where('first_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                  // Postgres Concatenation
-                  ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) ILIKE ?", ["%{$search}%"])
-                  ->orWhere('contact_number', 'ILIKE', "%{$search}%");
-            }
+                // --- PostgreSQL Strategy (Deployment) ---
+                if ($driver === 'pgsql') {
+                    // Use ILIKE for case-insensitive search
+                    $q->where('first_name', 'ILIKE', "%{$search}%")
+                        ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                      // Postgres Concatenation
+                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) ILIKE ?", ["%{$search}%"])
+                        ->orWhere('contact_number', 'ILIKE', "%{$search}%");
+                }
 
-            // --- SQLite Strategy (Local/Testing) ---
-            elseif ($driver === 'sqlite') {
-                // SQLite uses || for concatenation
-                $q->where('first_name', 'LIKE', "%{$search}%")
-                  ->orWhere('last_name', 'LIKE', "%{$search}%")
-                  ->orWhereRaw("(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
-                  ->orWhere('contact_number', 'LIKE', "%{$search}%");
-            }
+                // --- SQLite Strategy (Local/Testing) ---
+                elseif ($driver === 'sqlite') {
+                    // SQLite uses || for concatenation
+                    $q->where('first_name', 'LIKE', "%{$search}%")
+                        ->orWhere('last_name', 'LIKE', "%{$search}%")
+                        ->orWhereRaw("(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
+                        ->orWhere('contact_number', 'LIKE', "%{$search}%");
+                }
 
-            // --- MySQL / MariaDB Strategy (Default) ---
-            else {
-                // MySQL uses CONCAT and is case-insensitive by default
-                $q->where('first_name', 'LIKE', "%{$search}%")
-                  ->orWhere('last_name', 'LIKE', "%{$search}%")
-                  ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
-                  ->orWhere('contact_number', 'LIKE', "%{$search}%");
-            }
+                // --- MySQL / MariaDB Strategy (Default) ---
+                else {
+                    // MySQL uses CONCAT and is case-insensitive by default
+                    $q->where('first_name', 'LIKE', "%{$search}%")
+                        ->orWhere('last_name', 'LIKE', "%{$search}%")
+                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
+                        ->orWhere('contact_number', 'LIKE', "%{$search}%");
+                }
+            });
+        }
+
+        $customers = $query->paginate($perPage);
+
+        // Important: append search query for pagination links
+        $customers->appends(['search' => $search]);
+
+        // Add full_name attribute
+        $customers->getCollection()->transform(function ($customer) {
+            $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
+
+            return $customer;
         });
+
+        return response()->json($customers);
     }
 
-    $customers = $query->paginate($perPage);
-
-    // Important: append search query for pagination links
-    $customers->appends(['search' => $search]);
-
-    // Add full_name attribute
-    $customers->getCollection()->transform(function ($customer) {
-        $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
-        return $customer;
-    });
-
-    return response()->json($customers);
-}
     /**
      * Store a newly created customer.
      */

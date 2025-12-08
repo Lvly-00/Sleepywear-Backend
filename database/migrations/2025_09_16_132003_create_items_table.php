@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('image')->nullable();
             $table->integer('price');
             $table->integer('capital')->default(0);
-            $table->enum('status', ['Available', 'Sold Out'])->default('Available');
+            $table->enum('status', ['Available', 'Sold Out', 'Reserved'])->default('Available');
             $table->timestamps();
 
             $table->unique(['user_id', 'code']);
