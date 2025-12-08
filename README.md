@@ -28,7 +28,7 @@ This system improves **accuracy, efficiency, organization, and overall business 
 
 ---
 
-## 🛠 Tech Stack Used
+## Tech Stack Used
 
 **Frontend:**
 
