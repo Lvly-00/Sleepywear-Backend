@@ -52,7 +52,7 @@ This system improves **accuracy, efficiency, organization, and overall business 
 
 ---
 
-## ⚙️ Setup and Installation Instructions
+## Setup and Installation Instructions
 
 ### Backend (Laravel API)
 
