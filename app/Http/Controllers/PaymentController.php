@@ -37,7 +37,7 @@ class PaymentController extends Controller
             ]);
 
             // ONLY execute revenue updates if status IS 'Paid' and WAS NOT 'Paid' before
-            if ($payment->payment_status === 'Paid' && !$wasAlreadyPaid) {
+            if ($payment->payment_status === 'Paid' && ! $wasAlreadyPaid) {
 
                 $today = now()->toDateString();
 
@@ -73,12 +73,12 @@ class PaymentController extends Controller
 
             // Optional: If payment is reverted to Unpaid, set items back to Reserved
             if ($payment->payment_status === 'Unpaid' && $wasAlreadyPaid) {
-                 foreach ($order->orderItems as $orderItem) {
+                foreach ($order->orderItems as $orderItem) {
                     if ($orderItem->item) {
                         $orderItem->item->update(['status' => 'Reserved']);
                     }
-                 }
-                 // Note: You might want to decrement CollectionSalesSummary here if you want strict accuracy
+                }
+                // Note: You might want to decrement CollectionSalesSummary here if you want strict accuracy
             }
 
             if ($order->invoice) {

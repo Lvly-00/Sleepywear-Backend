@@ -77,6 +77,16 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
+        // 1. Validate inputs before starting transaction
+        // This ensures all item_ids sent actually exist in the DB.
+        $request->validate([
+            'customer' => 'required|array',
+            'items' => 'required|array',
+            'items.*.item_id' => 'required|exists:items,id', // <--- PREVENTS THE CRASH
+            'items.*.price' => 'required|numeric',
+            'items.*.quantity' => 'nullable|integer|min:1',
+        ]);
+
         try {
             return DB::transaction(function () use ($request) {
                 $customerData = $request->input('customer');
@@ -91,11 +101,12 @@ class OrderController extends Controller
                     $customer->update($customerData);
                 }
 
-                // Order Number Logic
-                $lastOrderNumber = Order::where('user_id', auth()->id())
+                // Order Number Logic (Fixed for Postgres/SQLite compatibility)
+                $lastOrder = Order::where('user_id', auth()->id())
+                    ->orderBy('order_number', 'desc')
                     ->lockForUpdate()
-                    ->max('order_number');
-                $nextOrderNumber = $lastOrderNumber ? $lastOrderNumber + 1 : 1;
+                    ->first();
+                $nextOrderNumber = $lastOrder ? $lastOrder->order_number + 1 : 1;
 
                 // Create Order
                 $order = Order::create([
@@ -122,8 +133,6 @@ class OrderController extends Controller
                         'user_id' => auth()->id(),
                     ]);
 
-                    // UPDATED: Set status to 'Reserved' (Not 'Sold Out' yet)
-                    // This prevents revenue from showing up before payment.
                     Item::where('id', $itemData['item_id'])->update(['status' => 'Reserved']);
 
                     $orderTotal += $itemData['price'] * ($itemData['quantity'] ?? 1);
@@ -149,6 +158,9 @@ class OrderController extends Controller
 
                 return $order;
             });
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Let validation errors pass through nicely
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Order creation failed',
@@ -207,7 +219,7 @@ class OrderController extends Controller
         }
     }
 
-     public function updateItems(Request $request, Order $order)
+    public function updateItems(Request $request, Order $order)
     {
         if ($order->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
