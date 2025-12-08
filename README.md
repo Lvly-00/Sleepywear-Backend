@@ -116,7 +116,7 @@ This system improves **accuracy, efficiency, organization, and overall business 
 4. Start the app:
 
    ```
-   npm start
+   npm run dev
    ```
 
 ---
