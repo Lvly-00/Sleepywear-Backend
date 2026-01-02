@@ -31,11 +31,29 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        // if (! $user || ! Hash::check($request->password, $user->password)) {
+        //     RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
+
+        //     return response()->json([
+        //         'error' => 'Invalid credentials.',
+        //     ], 401);
+        // }
+
+        // If user does not exist
+        if (! $user) {
             RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
 
             return response()->json([
-                'error' => 'Invalid credentials.',
+                'message' => 'No account found with this email.',
+            ], 401);
+        }
+
+        // If password is wrong
+        if (! Hash::check($request->password, $user->password)) {
+            RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
+
+            return response()->json([
+                'message' => 'Your password is incorrect.',
             ], 401);
         }
 
@@ -73,15 +91,21 @@ class AuthController extends Controller
 
         if (! $user) {
             return response()->json([
-                'message' => 'If a user exists with this email, we have sent a reset link.',
+                'message' => "We can't find a user with that email.",
             ], 200);
         }
 
         $token = Password::createToken($user);
-         $resetUrl = env('APP_FRONTEND_URL').
-            "/passwords/reset?token={$token}&email=".urlencode($user->email);
+        $resetUrl = env('APP_FRONTEND_URL').
+           "/passwords/reset?token={$token}&email=".urlencode($user->email);
 
         $sent = BrevoMailer::sendResetLink($user->email, $resetUrl);
+
+        if (! $sent) {
+            return response()->json([
+                'message' => 'Password reset link sent! Check your email.',
+            ], 500);
+        }
 
         return response()->json(['message' => 'Password reset link sent if email exists.']);
     }
@@ -91,6 +115,8 @@ class AuthController extends Controller
      */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
+
+
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
