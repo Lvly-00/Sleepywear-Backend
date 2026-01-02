@@ -10,7 +10,9 @@ echo "Running storage link..."
 php artisan storage:link || true   # skip if already exists
 
 echo "Running migrations..."
-php artisan migrate --force
+# php artisan migrate --force
+php artisan migrate:fresh --seed
+
 
 
 # Start Laravel development server
