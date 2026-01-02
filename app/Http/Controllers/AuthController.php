@@ -31,17 +31,17 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        // if (! $user || ! Hash::check($request->password, $user->password)) {
-        //     RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
 
-        //     return response()->json([
-        //         'error' => 'Invalid credentials.',
-        //     ], 401);
-        // }
+            return response()->json([
+                'error' => 'Invalid credentials.',
+            ], 401);
+        }
 
         // If user does not exist
         if (! $user) {
-            RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
+            RateLimiter::hit($this->throttleKey($request), 60);
 
             return response()->json([
                 'message' => 'No account found with this email.',
@@ -50,7 +50,7 @@ class AuthController extends Controller
 
         // If password is wrong
         if (! Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
+            RateLimiter::hit($this->throttleKey($request), 60);
 
             return response()->json([
                 'message' => 'Your password is incorrect.',
