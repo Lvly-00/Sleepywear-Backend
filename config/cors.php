@@ -35,7 +35,10 @@ return [
     | FRONTEND_URL=https://sleepywear-frontend.onrender.com,http://localhost:5173
     |
     */
-    'allowed_origins' => explode(',', env('FRONTEND_URL', 'http://localhost:5173')),
+    'allowed_origins' => [
+        'http://localhost:5173',
+        'http://192.168.100.93:8081',
+    ],
 
     'allowed_origins_patterns' => [],
 
