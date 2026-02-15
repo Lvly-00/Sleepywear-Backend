@@ -127,8 +127,8 @@ class CollectionController extends Controller
         $collection->total_sales = $collection->items
             ->where('status', 'Sold Out')
             ->sum('price');
-        $collection->capital = $collection->items->sum('capital');
-        $collection->status = $collection->items->where('status', 'Available')->count() > 0
+    $collection->capital = $collection->capital ?? 0;
+                                                                                                                                                                                            $collection->status = $collection->items->where('status', 'Available')->count() > 0
             ? 'Active'
             : 'Sold Out';
 
