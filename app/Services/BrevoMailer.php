@@ -48,18 +48,17 @@ class BrevoMailer
     }
 
     private static function resetEmailPayload(string $email, string $resetUrl): array
-{
-    return [
-        'sender' => [
-            'name' => config('mail.from.name', 'Sleepywear Security'),
-            'email' => config('mail.from.address', 'lovelypintes@gmail.com'),
-        ],
-        'to' => [['email' => $email]],
-        'subject' => 'Action Required: Reset Password',
-        'htmlContent' => self::resetEmailTemplate($resetUrl),
-    ];
-}
-
+    {
+        return [
+            'sender' => [
+                'name' => config('mail.from.name', 'Sleepywear Security'),
+                'email' => config('mail.from.address', 'lovelypintes@gmail.com'),
+            ],
+            'to' => [['email' => $email]],
+            'subject' => 'Action Required: Reset Password',
+            'htmlContent' => self::resetEmailTemplate($resetUrl),
+        ];
+    }
 
     private static function resetEmailTemplate(string $resetUrl): string
     {
@@ -67,5 +66,28 @@ class BrevoMailer
             'resetUrl' => $resetUrl,
             'year' => date('Y'),
         ])->render();
+    }
+
+    /**
+     * Send a simple text-based email (For OTP)
+     */
+    public static function sendOtpEmail(string $email, string $otp): bool
+    {
+        $payload = [
+            'sender' => [
+                'name' => config('mail.from.name', 'Sleepywear Security'),
+                'email' => config('mail.from.address', 'lovelypintes@gmail.com'),
+            ],
+            'to' => [['email' => $email]],
+            'subject' => 'Your Password Reset Code',
+            'htmlContent' => view('emails.password-reset', [
+                'otp' => $otp,
+                'year' => date('Y'),
+            ])->render(),
+        ];
+
+        $response = Http::withHeaders(self::headers())->post(self::API_URL, $payload);
+
+        return $response->successful();
     }
 }

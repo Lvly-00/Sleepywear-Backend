@@ -24,6 +24,7 @@ Route::post('/logout', [AuthController::class, 'logout']);
 
 // Passwords as a "passwords" resource
 Route::post('/passwords/forgot', [AuthController::class, 'forgotPassword']);
+Route::post('/passwords/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/passwords/reset', [AuthController::class, 'resetPassword']);
 
 // Test email (optional)

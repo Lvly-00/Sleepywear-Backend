@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Reset Password - Sleepywear Inventory</title>
+    <title>Verification Code - Sleepywear Inventory</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         /* Base Styles */
@@ -58,20 +58,6 @@
             text-align: center;
         }
 
-        .icon-circle {
-            width: 70px;
-            height: 70px;
-            background-color: rgba(26, 34, 96, 0.05);
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            margin-bottom: 20px;
-            color: #1a2260;
-            line-height: 70px; /* Center icon vertically */
-        }
-
         h2 {
             color: #1a2260;
             font-size: 22px;
@@ -81,26 +67,31 @@
         p {
             color: #555555;
             line-height: 1.6;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             font-size: 16px;
         }
 
-        /* Button Action */
-        .btn {
+        /* OTP Code Box */
+        .otp-container {
+            background-color: #f8f9fa;
+            border: 2px dashed #1a2260;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
             display: inline-block;
-            background-color: #1a2260;
-            color: #ffffff !important;
-            padding: 14px 32px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
+        }
+
+        .otp-code {
+            font-size: 38px;
+            font-weight: 800;
+            color: #1a2260;
+            letter-spacing: 8px;
+            margin: 0;
         }
 
         /* Secondary Text Section */
         .secondary-text {
-            margin-top: 40px;
+            margin-top: 30px;
             padding-top: 25px;
             border-top: 1px solid #eeeeee;
         }
@@ -109,13 +100,6 @@
             font-size: 13px;
             color: #8898aa;
             margin-bottom: 10px;
-        }
-
-        .url-link {
-            word-break: break-all;
-            color: #1a2260;
-            text-decoration: none;
-            font-size: 13px;
         }
 
         /* Footer Area */
@@ -139,6 +123,10 @@
             .content {
                 padding: 30px 20px;
             }
+            .otp-code {
+                font-size: 32px;
+                letter-spacing: 5px;
+            }
         }
     </style>
 </head>
@@ -151,16 +139,20 @@
             </div>
 
             <div class="content">
-                <h2>Password Reset Request</h2>
+                <h2>Verification Code</h2>
                 <p>Hello,</p>
-                <p>We received a request to reset your Sleepywear Inventory account password. Click the button below to choose a new password.</p>
+                <p>We received a request to reset your Sleepywear Inventory account password. Please enter the following code in the application to proceed:</p>
 
-                <a href="<?php echo e($resetUrl); ?>" class="btn">Reset Password</a>
+                <div class="otp-container">
+                    <h1 class="otp-code"><?php echo e($otp); ?></h1>
+                </div>
+
+                <p style="margin-top: 20px; font-size: 14px; color: #8898aa;">
+                    This code will expire in 60 minutes for security reasons.
+                </p>
 
                 <div class="secondary-text">
                     <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-                    <p>Button not working? Copy and paste the link below into your browser:</p>
-                    <a href="<?php echo e($resetUrl); ?>" class="url-link"><?php echo e($resetUrl); ?></a>
                 </div>
             </div>
         </div>

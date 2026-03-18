@@ -14,3 +14,5 @@ Route::get('/debug-csrf', function () {
         'cookies' => request()->cookies->all(),
     ]);
 });
+
+Route::get('/password-reset/mobile', [App\Http\Controllers\AuthController::class, 'mobileResetBridge'])->name('password.reset.mobile');
