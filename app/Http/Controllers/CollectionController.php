@@ -32,7 +32,7 @@ class CollectionController extends Controller
         // Query collections for the authenticated user
         $query = Collection::with('items')
             ->where('user_id', auth()->id())
-            ->orderBy('id', 'asc');
+            ->orderBy('id', 'desc');
 
         // Filter by collection name if search exists
         if ($search) {
@@ -59,6 +59,8 @@ class CollectionController extends Controller
             $col->qty = $col->items->count();
             $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
             $col->capital = $col->capital ?? 0;
+            $col->available_count = $col->items->where('status', 'Available')->count();
+
             $col->status = $col->items->where('status', 'Available')->count() > 0
                 ? 'Active'
                 : 'Sold Out';
