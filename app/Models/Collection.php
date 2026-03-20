@@ -13,11 +13,13 @@ class Collection extends Model
         'user_id',
         'name',
         'release_date',
+        'payment_cutoff_date',
         'qty',
         'capital',
         'total_sales',
         'stock_qty',
         'status',
+
 
     ];
 

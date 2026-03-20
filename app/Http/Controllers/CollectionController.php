@@ -74,6 +74,7 @@ class CollectionController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'release_date' => 'required|date',
+            'payment_cutoff_date' => 'required|date',
             'capital' => 'required|numeric|min:0',
         ]);
 
@@ -97,6 +98,7 @@ class CollectionController extends Controller
         $collection = Collection::create([
             'name' => $finalName,
             'release_date' => $request->input('release_date'),
+            'payment_cutoff_date' => $request->input('payment_cutoff_date'),
             'capital' => $request->input('capital'),
             'user_id' => auth()->id(),
         ]);
@@ -127,8 +129,8 @@ class CollectionController extends Controller
         $collection->total_sales = $collection->items
             ->where('status', 'Sold Out')
             ->sum('price');
-    $collection->capital = $collection->capital ?? 0;
-                                                                                                                                                                                            $collection->status = $collection->items->where('status', 'Available')->count() > 0
+        $collection->capital = $collection->capital ?? 0;
+        $collection->status = $collection->items->where('status', 'Available')->count() > 0
             ? 'Active'
             : 'Sold Out';
 
@@ -146,8 +148,9 @@ class CollectionController extends Controller
         }
 
         $request->validate([
-            'name' => 'required|string|max:255', // numeric string expected
+            'name' => 'required|string|max:255',
             'release_date' => 'required|date',
+            'payment_cutoff_date' => 'required|date',
             'capital' => 'required|numeric|min:0',
         ]);
 
@@ -176,6 +179,7 @@ class CollectionController extends Controller
         $collection->update([
             'name' => $finalName,
             'release_date' => $request->input('release_date'),
+            'payment_cutoff_date' => $request->input('payment_cutoff_date'),
             'capital' => $request->input('capital'),
         ]);
 
