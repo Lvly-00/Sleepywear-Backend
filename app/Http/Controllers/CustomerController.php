@@ -13,40 +13,28 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 10);
+        $perPage = $request->input('per_page', 15);
         $search = $request->input('search');
+        $driver = DB::connection()->getDriverName();
 
-        // 1. Detect Database Driver
-        $driver = DB::connection()->getDriverName(); // 'mysql', 'pgsql', 'sqlite'
-
-        $query = Customer::where('user_id', auth()->id())
-            ->orderBy('first_name');
+        $query = Customer::with('orders.invoice')
+            ->where('user_id', auth()->id())
+            ->orderBy('first_name', 'asc')
+            ->orderBy('id', 'asc');
 
         if ($search) {
             $query->where(function ($q) use ($search, $driver) {
-
-                // --- PostgreSQL Strategy (Deployment) ---
                 if ($driver === 'pgsql') {
-                    // Use ILIKE for case-insensitive search
                     $q->where('first_name', 'ILIKE', "%{$search}%")
                         ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                      // Postgres Concatenation
                         ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) ILIKE ?", ["%{$search}%"])
                         ->orWhere('contact_number', 'ILIKE', "%{$search}%");
-                }
-
-                // --- SQLite Strategy (Local/Testing) ---
-                elseif ($driver === 'sqlite') {
-                    // SQLite uses || for concatenation
+                } elseif ($driver === 'sqlite') {
                     $q->where('first_name', 'LIKE', "%{$search}%")
                         ->orWhere('last_name', 'LIKE', "%{$search}%")
                         ->orWhereRaw("(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
                         ->orWhere('contact_number', 'LIKE', "%{$search}%");
-                }
-
-                // --- MySQL / MariaDB Strategy (Default) ---
-                else {
-                    // MySQL uses CONCAT and is case-insensitive by default
+                } else {
                     $q->where('first_name', 'LIKE', "%{$search}%")
                         ->orWhere('last_name', 'LIKE', "%{$search}%")
                         ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
@@ -55,16 +43,22 @@ class CustomerController extends Controller
             });
         }
 
-        $customers = $query->paginate($perPage);
+        // Execute Cursor Pagination
+        $customers = $query->cursorPaginate($perPage);
 
-        // Important: append search query for pagination links
-        $customers->appends(['search' => $search]);
-
-        // Add full_name attribute
+        // Transform data
         $customers->getCollection()->transform(function ($customer) {
-            $customer->full_name = trim($customer->first_name.' '.$customer->last_name);
-
-            return $customer;
+            return [
+                'id' => $customer->id,
+                'first_name' => $customer->first_name,
+                'last_name' => $customer->last_name,
+                'full_name' => trim($customer->first_name.' '.$customer->last_name),
+                'address' => $customer->address,
+                'contact_number' => $customer->contact_number,
+                'social_handle' => $customer->social_handle,
+                'orders' => $customer->orders, // Keep this if you still want to pass it via router params
+                'created_at' => $customer->created_at,
+            ];
         });
 
         return response()->json($customers);
@@ -96,12 +90,16 @@ class CustomerController extends Controller
      */
     public function show($id)
     {
-        $customer = Customer::where('id', $id)
+        // We load 'orders.invoice' to get the linked invoice for every order
+        $customer = Customer::with(['orders.invoice' => function ($query) {
+            $query->orderBy('created_at', 'desc');
+        }])
+            ->where('id', $id)
             ->where('user_id', auth()->id())
             ->first();
 
         if (! $customer) {
-            return response()->json(['message' => 'Customer not found or unauthorized'], 404);
+            return response()->json(['message' => 'Customer not found'], 404);
         }
 
         $customer->full_name = trim($customer->first_name.' '.$customer->last_name);

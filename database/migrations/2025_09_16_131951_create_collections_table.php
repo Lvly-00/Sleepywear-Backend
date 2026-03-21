@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('name');
             $table->date('release_date')->nullable();
             $table->date('payment_cutoff_date')->nullable()->after('release_date');
-
             $table->integer('qty')->default(0);
             $table->integer('capital')->default(0);
             $table->integer('total_sales')->default(0);

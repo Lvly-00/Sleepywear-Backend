@@ -24,52 +24,56 @@ class CollectionController extends Controller
         return $number.$suffix.' Collection';
     }
 
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search');
+   public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 15);
+    $search = $request->input('search');
 
-        // Query collections for the authenticated user
-        $query = Collection::with('items')
-            ->where('user_id', auth()->id())
-            ->orderBy('id', 'desc');
 
-        // Filter by collection name if search exists
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                // 1. Standard Case-Insensitive Search
-                // This fixes the issue where '2nd collection' wouldn't match '2nd Collection'
-                $q->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($search).'%']);
+    $query = Collection::where('user_id', auth()->id())
+        ->withCount([
+            'items as qty',
+            'items as available_count' => function ($q) {
+                $q->where('status', 'Available');
+            }
+        ])
+        ->withSum([
+            'items as total_sales' => function ($q) {
+                $q->where('status', 'Sold Out');
+            }
+        ], 'price')
+        ->orderBy('id', 'desc');
 
-                // 2. Smart Number Search
-                // If user searches "2", we also check specifically for "2nd Collection"
-                if (is_numeric($search)) {
-                    $ordinalName = $this->ordinal($search); // Generates "2nd Collection"
-                    $q->orWhereRaw('LOWER(name) LIKE ?', ['%'.strtolower($ordinalName).'%']);
-                }
-            });
-        }
+    // Search Logic
+    if ($search) {
+        $query->where(function ($q) use ($search) {
+            $searchTerm = strtolower($search);
+            $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
 
-        // Paginate results and append search term to pagination links
-        $collections = $query->paginate($perPage)->appends(['search' => $search]);
-
-        // Transform each collection for additional info
-        $collections->getCollection()->transform(function ($col) {
-            $col->stock_qty = $col->items->sum('stock_qty');
-            $col->qty = $col->items->count();
-            $col->total_sales = $col->items->where('status', 'Sold Out')->sum('price');
-            $col->capital = $col->capital ?? 0;
-            $col->available_count = $col->items->where('status', 'Available')->count();
-
-            $col->status = $col->items->where('status', 'Available')->count() > 0
-                ? 'Active'
-                : 'Sold Out';
-
-            return $col;
+            if (is_numeric($search)) {
+                $ordinalName = strtolower($this->ordinal($search));
+                $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
+            }
         });
-
-        return response()->json($collections);
     }
+
+    $collections = $query->cursorPaginate($perPage);
+
+    $collections->getCollection()->transform(function ($col) {
+        return [
+            'id' => $col->id,
+            'name' => $col->name,
+            'qty' => $col->qty ?? 0,
+            'available_count' => $col->available_count ?? 0,
+            'total_sales' => (float) ($col->total_sales ?? 0),
+            'capital' => (float) ($col->capital ?? 0),
+            'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
+            'created_at' => $col->created_at,
+        ];
+    });
+
+    return response()->json($collections);
+}
 
     public function store(Request $request)
     {
