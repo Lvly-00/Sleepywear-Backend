@@ -16,26 +16,29 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = 10;
-        $page = $request->query('page', 1);
-        $search = $request->query('search');
-
+        // 1. Setup Parameters (Following Customer reference style)
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
         $driver = DB::connection()->getDriverName();
 
+        // 2. Base Query with Joins
         $ordersQuery = Order::with(['items', 'payment'])
             ->where('orders.user_id', auth()->id())
             ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
             ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
-            ->select('orders.*')
-            ->orderByRaw("
-                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-            ");
+            ->select([
+                'orders.*',
+                'customers.first_name',
+                'customers.last_name',
+                'customers.address',         // Add this
+                'customers.contact_number',  // Add this
+                'customers.social_handle',   // Add this
+                'payments.payment_status',
+            ]);
 
+        // 3. Multi-Driver Search Logic
         if ($search) {
             $ordersQuery->where(function ($query) use ($search, $driver) {
-                // CHANGED: Search 'order_number' instead of 'id'
                 if ($driver === 'pgsql') {
                     $query->where('customers.first_name', 'ILIKE', "%{$search}%")
                         ->orWhere('customers.last_name', 'ILIKE', "%{$search}%")
@@ -58,18 +61,42 @@ class OrderController extends Controller
             });
         }
 
-        $orders = $ordersQuery->paginate($perPage, ['*'], 'page', $page)
-            ->appends(['search' => $search]);
+        // 4. Deterministic Ordering for Cursor Pagination
+        // Note: We add orders.id at the end to ensure uniqueness for the cursor
+        $ordersQuery->orderByRaw("
+                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
+                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
+                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
+            ")
+            ->orderBy('orders.id', 'desc');
+
+        $orders = $ordersQuery->cursorPaginate($perPage);
 
         $orders->getCollection()->transform(function ($order) {
-            $order->payment_image_url = $order->payment && $order->payment->payment_image
-                ? asset('storage/'.$order->payment->payment_image)
-                : null;
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'formatted_id' => str_pad($order->order_number, 4, '0', STR_PAD_LEFT),
+                'first_name' => $order->first_name,
+                'last_name' => $order->last_name,
+                'customer_full_name' => trim($order->first_name.' '.$order->last_name),
 
-            // CHANGED: Pad order_number, not id
-            $order->formatted_id = str_pad($order->order_number, 4, '0', STR_PAD_LEFT);
+                // ADD THESE MISSING FIELDS HERE:
+                'address' => $order->address,
+                'contact_number' => $order->contact_number,
+                'social_handle' => $order->social_handle,
+                'payment_status' => $order->payment_status,
 
-            return $order;
+                'order_date' => $order->order_date,
+                'total' => $order->total,
+                'items_count' => $order->items->count(),
+                'items' => $order->items,
+                'payment' => $order->payment,
+                'payment_image_url' => $order->payment && $order->payment->payment_image
+                    ? asset('storage/'.$order->payment->payment_image)
+                    : null,
+                'created_at' => $order->created_at,
+            ];
         });
 
         return response()->json($orders);

@@ -56,7 +56,7 @@ class CustomerController extends Controller
                 'address' => $customer->address,
                 'contact_number' => $customer->contact_number,
                 'social_handle' => $customer->social_handle,
-                'orders' => $customer->orders, // Keep this if you still want to pass it via router params
+                'orders' => $customer->orders,
                 'created_at' => $customer->created_at,
             ];
         });
@@ -90,7 +90,6 @@ class CustomerController extends Controller
      */
     public function show($id)
     {
-        // We load 'orders.invoice' to get the linked invoice for every order
         $customer = Customer::with(['orders.invoice' => function ($query) {
             $query->orderBy('created_at', 'desc');
         }])

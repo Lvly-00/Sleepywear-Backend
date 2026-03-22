@@ -24,56 +24,60 @@ class CollectionController extends Controller
         return $number.$suffix.' Collection';
     }
 
-   public function index(Request $request)
-{
-    $perPage = $request->input('per_page', 15);
-    $search = $request->input('search');
+    public function index(Request $request)
+    {
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
 
-
-    $query = Collection::where('user_id', auth()->id())
-        ->withCount([
-            'items as qty',
-            'items as available_count' => function ($q) {
+        $query = Collection::where('user_id', auth()->id())
+            ->with(['items' => function ($q) {
                 $q->where('status', 'Available');
-            }
-        ])
-        ->withSum([
-            'items as total_sales' => function ($q) {
-                $q->where('status', 'Sold Out');
-            }
-        ], 'price')
-        ->orderBy('id', 'desc');
+            }])
+            ->withCount([
+                'items as qty',
+                'items as available_count' => function ($q) {
+                    $q->where('status', 'Available');
+                },
+            ])
+            ->withSum([
+                'items as total_sales' => function ($q) {
+                    $q->where('status', 'Sold Out');
+                },
+            ], 'price')
+            ->orderBy('id', 'desc');
 
-    // Search Logic
-    if ($search) {
-        $query->where(function ($q) use ($search) {
-            $searchTerm = strtolower($search);
-            $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
+        // Search Logic
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $searchTerm = strtolower($search);
+                $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
 
-            if (is_numeric($search)) {
-                $ordinalName = strtolower($this->ordinal($search));
-                $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
-            }
+                if (is_numeric($search)) {
+                    $ordinalName = strtolower($this->ordinal($search));
+                    $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
+                }
+            });
+        }
+
+        $collections = $query->cursorPaginate($perPage);
+
+        $collections->getCollection()->transform(function ($col) {
+            return [
+                'id' => $col->id,
+                'name' => $col->name,
+                'qty' => $col->qty ?? 0,
+                'available_count' => $col->available_count ?? 0,
+                'total_sales' => (float) ($col->total_sales ?? 0),
+                'capital' => (float) ($col->capital ?? 0),
+                'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
+                'created_at' => $col->created_at,
+                'items' => $col->items,
+
+            ];
         });
+
+        return response()->json($collections);
     }
-
-    $collections = $query->cursorPaginate($perPage);
-
-    $collections->getCollection()->transform(function ($col) {
-        return [
-            'id' => $col->id,
-            'name' => $col->name,
-            'qty' => $col->qty ?? 0,
-            'available_count' => $col->available_count ?? 0,
-            'total_sales' => (float) ($col->total_sales ?? 0),
-            'capital' => (float) ($col->capital ?? 0),
-            'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
-            'created_at' => $col->created_at,
-        ];
-    });
-
-    return response()->json($collections);
-}
 
     public function store(Request $request)
     {
