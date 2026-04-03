@@ -165,7 +165,7 @@ class AuthController extends Controller
         }
 
         // 3. Check if expired
-        if (now()->parse($record->created_at)->addMinutes(1)->isPast()) {
+        if (now()->parse($record->created_at)->addMinutes(5)->isPast()) {
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
             return response()->json(['message' => 'The code has expired.'], 400);
