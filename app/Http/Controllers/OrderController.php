@@ -22,7 +22,7 @@ class OrderController extends Controller
         $driver = DB::connection()->getDriverName();
 
         // 2. Base Query with Joins
-        $ordersQuery = Order::with(['items', 'payment'])
+        $ordersQuery = Order::with(['items.item', 'payment'])
             ->where('orders.user_id', auth()->id())
             ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
             ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
@@ -30,9 +30,9 @@ class OrderController extends Controller
                 'orders.*',
                 'customers.first_name',
                 'customers.last_name',
-                'customers.address',         // Add this
-                'customers.contact_number',  // Add this
-                'customers.social_handle',   // Add this
+                'customers.address',
+                'customers.contact_number',
+                'customers.social_handle',
                 'payments.payment_status',
             ]);
 
@@ -73,6 +73,8 @@ class OrderController extends Controller
         $orders = $ordersQuery->cursorPaginate($perPage);
 
         $orders->getCollection()->transform(function ($order) {
+            $lastOrderItem = $order->items->last();
+
             return [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
@@ -96,6 +98,9 @@ class OrderController extends Controller
                     ? asset('storage/'.$order->payment->payment_image)
                     : null,
                 'created_at' => $order->created_at,
+                'last_item_image' => $lastOrderItem && $lastOrderItem->item
+            ? $lastOrderItem->item->image
+            : null,
             ];
         });
 
@@ -104,12 +109,10 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Validate inputs before starting transaction
-        // This ensures all item_ids sent actually exist in the DB.
         $request->validate([
             'customer' => 'required|array',
             'items' => 'required|array',
-            'items.*.item_id' => 'required|exists:items,id', // <--- PREVENTS THE CRASH
+            'items.*.item_id' => 'required|exists:items,id',
             'items.*.price' => 'required|numeric',
             'items.*.quantity' => 'nullable|integer|min:1',
         ]);

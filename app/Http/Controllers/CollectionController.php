@@ -43,8 +43,7 @@ class CollectionController extends Controller
                 'items as total_sales' => function ($q) {
                     $q->where('status', 'Sold Out');
                 },
-            ], 'price')
-            ->orderBy('id', 'desc');
+            ], 'price');
 
         // Search Logic
         if ($search) {
@@ -58,6 +57,13 @@ class CollectionController extends Controller
                 }
             });
         }
+
+        $query->orderByRaw('
+        (SELECT COUNT(*) FROM items
+         WHERE items.collection_id = collections.id
+         AND items.status = "Available") > 0 DESC')
+            ->orderBy('release_date', 'desc')
+            ->orderBy('id', 'desc');
 
         $collections = $query->cursorPaginate($perPage);
 
