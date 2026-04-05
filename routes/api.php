@@ -26,6 +26,8 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::post('/passwords/forgot', [AuthController::class, 'forgotPassword']);
 Route::post('/passwords/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/passwords/reset', [AuthController::class, 'resetPassword']);
+Route::post('/biometrics/request-otp', [AuthController::class, 'requestBiometricOtp']);
+Route::post('/biometrics/verify-otp', [AuthController::class, 'verifyBiometricOtp']);
 
 // Test email (optional)
 Route::get('/test-send-email', [AuthController::class, 'testSendEmail']);

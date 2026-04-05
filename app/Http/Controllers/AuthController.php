@@ -12,10 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -88,57 +88,26 @@ class AuthController extends Controller
     /**
      * Send password reset email
      */
-    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        // 1. Find the user
         $user = User::where('email', $request->email)->first();
-
-        // 2. For security, return success even if user doesn't exist
-        // (prevents email harvesting), or keep your original logic.
-        if (! $user) {
-            return response()->json([
-                'message' => "We can't find a user with that email.",
-            ], 404);
+        if (!$user) {
+            return response()->json(['message' => "We can't find a user with that email."], 404);
         }
 
-        // 3. Generate a 6-digit OTP code
         $otp = (string) rand(100000, 999999);
 
-        // 4. Store the OTP in the password_reset_tokens table
-        // We hash it for security, just like a standard password
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $user->email],
-            [
-                'token' => Hash::make($otp),
-                'created_at' => now(),
-            ]
+            ['token' => Hash::make($otp), 'created_at' => now()]
         );
 
-        // 5. Send the OTP via Brevo
-        try {
-            $sent = BrevoMailer::sendOtpEmail($user->email, $otp);
+        // Default purpose is 'reset'
+        BrevoMailer::sendOtpEmail($user->email, $otp, 'reset');
 
-            if (! $sent) {
-                Log::error('Brevo failed to send OTP to: '.$user->email);
-
-                return response()->json([
-                    'message' => 'Failed to send verification code. Please try again.',
-                ], 500);
-            }
-
-            // 6. Return success message
-            return response()->json([
-                'message' => 'Verification code sent! Check your email.',
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Forgot Password Error: '.$e->getMessage());
-
-            return response()->json([
-                'message' => 'An error occurred while processing your request.',
-            ], 500);
-        }
+        return response()->json(['message' => 'Verification code sent! Check your email.']);
     }
+
 
     /**
      * Verify if the 6-digit OTP is correct
@@ -172,6 +141,59 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Code verified successfully.']);
+    }
+
+    /**
+     * Request OTP for Biometric Registration (Unauthenticated)
+     */
+    public function requestBiometricOtp(Request $request): JsonResponse
+    {
+        $request->validate(['email' => 'required|email']);
+        $email = strtolower(trim($request->email));
+        $user = \App\Models\User::where('email', $email)->first();
+
+        if (! $user) {
+            return response()->json(['message' => 'No account found with this email.'], 404);
+        }
+
+        $otp = (string) rand(100000, 999999);
+
+        // ALWAYS Hash the token before saving
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            [
+                'token' => Hash::make($otp),
+                'created_at' => now(),
+            ]
+        );
+
+        // Pass 'biometric' as the purpose
+        try {
+            BrevoMailer::sendOtpEmail($user->email, $otp, 'biometric');
+
+            return response()->json(['message' => 'Verification code sent!']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Mail service error.'], 500);
+        }
+    }
+
+    /**
+     * Verify Biometric OTP
+     */
+    public function verifyBiometricOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|digits:6',
+        ]);
+
+        $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (! $record || ! Hash::check($request->otp, $record->token)) {
+            return response()->json(['message' => 'The code is incorrect.'], 400);
+        }
+
+        return response()->json(['message' => 'Biometrics authorized.']);
     }
 
     /**
