@@ -30,7 +30,6 @@ class OrderController extends Controller
                 'orders.*',
                 'customers.first_name',
                 'customers.last_name',
-                'customers.address',
                 'customers.contact_number',
                 'customers.social_handle',
                 'payments.payment_status',
@@ -111,6 +110,7 @@ class OrderController extends Controller
     {
         $request->validate([
             'customer' => 'required|array',
+            'address' => 'required|string',
             'items' => 'required|array',
             'items.*.item_id' => 'required|exists:items,id',
             'items.*.price' => 'required|numeric',
@@ -121,33 +121,33 @@ class OrderController extends Controller
             return DB::transaction(function () use ($request) {
                 $customerData = $request->input('customer');
                 $itemsData = $request->input('items');
+                $shippingAddress = $request->input('address'); // Get address from root of request
 
-                // Customer Logic
+                // 1. Handle Customer (Filter out address to prevent crash)
+                $customerFiltered = collect($customerData)->except(['address', 'addresses'])->toArray();
+
                 $customer = isset($customerData['id']) && $customerData['id']
                     ? Customer::findOrFail($customerData['id'])
-                    : Customer::create($customerData);
+                    : Customer::create(array_merge($customerFiltered, ['user_id' => auth()->id()]));
 
                 if (isset($customerData['id']) && $customerData['id']) {
-                    $customer->update($customerData);
+                    $customer->update($customerFiltered);
                 }
 
-                // Order Number Logic (Fixed for Postgres/SQLite compatibility)
-                $lastOrder = Order::where('user_id', auth()->id())
-                    ->orderBy('order_number', 'desc')
-                    ->lockForUpdate()
-                    ->first();
+                // 2. Order Number Logic
+                $lastOrder = Order::where('user_id', auth()->id())->orderBy('order_number', 'desc')->first();
                 $nextOrderNumber = $lastOrder ? $lastOrder->order_number + 1 : 1;
 
-                // Create Order
+                // 3. Create Order
                 $order = Order::create([
                     'user_id' => auth()->id(),
                     'order_number' => $nextOrderNumber,
                     'customer_id' => $customer->id,
                     'first_name' => $customer->first_name,
                     'last_name' => $customer->last_name,
-                    'address' => $customer->address,
                     'contact_number' => $customer->contact_number,
                     'social_handle' => $customer->social_handle,
+                    'address' => $shippingAddress, // FIX: Use the variable from request, NOT $customer->address
                     'total' => 0,
                 ]);
 
@@ -214,6 +214,9 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order)
     {
+
+        $customerData = $request->input('customer');
+        $shippingAddress = $request->input('address');
         if ($order->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -222,14 +225,15 @@ class OrderController extends Controller
             $customerData = $request->input('customer');
 
             if ($customerData) {
-                $order->customer->update($customerData);
+                $customerFiltered = collect($customerData)->except(['address', 'addresses'])->toArray();
+                $order->customer->update($customerFiltered);
 
                 $order->update([
                     'first_name' => $customerData['first_name'],
                     'last_name' => $customerData['last_name'],
-                    'address' => $customerData['address'],
                     'contact_number' => $customerData['contact_number'],
                     'social_handle' => $customerData['social_handle'],
+                    'address' => $shippingAddress ?? $order->address, // FIX: Use request address
                 ]);
             }
 

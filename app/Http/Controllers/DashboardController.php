@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Collection;
 use App\Models\CollectionSalesSummary;
+use App\Models\Item;
 use App\Models\Order;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
@@ -13,103 +15,86 @@ class DashboardController extends Controller
     {
         try {
             $userId = auth()->id();
+            $now = Carbon::now();
 
-            // ───────────────────────────────────────────────
-            // TOTALS from CollectionSalesSummary table for this user only
-            // ───────────────────────────────────────────────
+            // 1. ORIGINAL TOTALS LOGIC
             $totalRevenue = CollectionSalesSummary::where('user_id', $userId)->sum('total_sales');
             $totalItemsSold = CollectionSalesSummary::where('user_id', $userId)->sum('total_items_sold');
             $totalCustomers = Order::where('user_id', $userId)
-                ->whereHas('payment', function ($query) {
-                    $query->where('payment_status', 'Paid');
-                })
-                ->distinct('customer_id') // Count unique customers only
-                ->count('customer_id');
-            $grossIncome = $totalRevenue;
+                ->whereHas('payment', fn ($q) => $q->where('payment_status', 'Paid'))
+                ->distinct('customer_id')->count('customer_id');
 
-            // ───────────────────────────────────────────────
-            // NET INCOME = sum of unique collection_capital for this user
-            // ───────────────────────────────────────────────
-            $summaryCapital = CollectionSalesSummary::where('user_id', $userId)
+            // 2. ORIGINAL NET INCOME (CAPITAL) LOGIC
+            $netIncome = CollectionSalesSummary::where('user_id', $userId)
                 ->select('collection_id', 'collection_capital')
                 ->groupBy('collection_id', 'collection_capital')
-                ->get()
-                ->sum('collection_capital');
+                ->get()->sum('collection_capital');
 
-            $netIncome = $summaryCapital;
+            // 3. ADDITIONAL METRICS FOR DESIGN
+            $paidOrders = Order::where('user_id', $userId)
+                ->whereHas('payment', fn ($q) => $q->where('payment_status', 'Paid'))
+                ->with(['orderItems.item.collection', 'customer']);
 
-            // ───────────────────────────────────────────────
-            // COLLECTION SALES for this user only
-            // ───────────────────────────────────────────────
-            $collectionSales = Collection::leftJoin('items', 'collections.id', '=', 'items.collection_id')
-                ->leftJoin('order_items', 'items.id', '=', 'order_items.item_id')
-                ->leftJoin('orders', 'order_items.order_id', '=', 'orders.id')
-                ->leftJoin('payments', 'payments.order_id', '=', 'orders.id')
-                ->where('collections.user_id', $userId) // filter by user
-                ->where('payments.payment_status', 'Paid')
-                ->groupBy('collections.id', 'collections.name')
-                ->selectRaw('collections.name as collection_name, COALESCE(SUM(order_items.price * order_items.quantity), 0) as total_sales')
-                ->get()
-                ->map(function ($collection) {
-                    return [
-                        'collection_name' => $collection->collection_name,
-                        'total_sales' => round($collection->total_sales),
-                    ];
-                });
+            $paidOrdersCount = (clone $paidOrders)->count();
+            $avgOrderValue = $paidOrdersCount > 0 ? ($totalRevenue / $paidOrdersCount) : 0;
 
-            // ───────────────────────────────────────────────
-            // DAILY SALES for chart (this user's data only)
-            // ───────────────────────────────────────────────
+            // Monthly Goal (Example target 50k)
+            $monthlySales = (clone $paidOrders)->whereMonth('created_at', $now->month)->get()
+                ->sum(fn ($o) => $o->orderItems->sum(fn ($i) => $i->price * $i->quantity));
+            $goalReached = round(($monthlySales / 50000) * 100);
+
+            // Stock Health
+            $lowStock = Item::whereHas('collection', fn ($q) => $q->where('user_id', $userId))
+                ->where('stock', '<', 5)->count();
+            $stockHealth = $lowStock > 0 ? "Restock ($lowStock)" : 'All Good';
+
+            // 4. CHART DATA (DAILY SALES)
             $collections = Collection::where('user_id', $userId)->pluck('name')->toArray();
-            $monthDays = now()->daysInMonth;
-
-            // Initialize daily sales array
             $dailySales = [];
-            for ($day = 1; $day <= $monthDays; $day++) {
+            for ($day = 1; $day <= $now->daysInMonth; $day++) {
                 $row = ['date' => $day];
-                foreach ($collections as $collection) {
-                    $row[$collection] = 0;
+                foreach ($collections as $c) {
+                    $row[$c] = 0;
                 }
-                $dailySales[$day - 1] = $row; // 0-indexed
+                $dailySales[] = $row;
             }
 
-            // Fetch orders for this user, current month, with paid payments
-            $orders = Order::where('user_id', $userId)
-                ->whereMonth('created_at', now()->month)
-                ->whereHas('payment', function ($q) {
-                    $q->where('payment_status', 'Paid');
-                })
-                ->with('orderItems.item.collection')
-                ->get();
-
-            // Aggregate sales per day per collection
-            foreach ($orders as $order) {
-                $dayIndex = (int) $order->created_at->format('d') - 1;
+            $currentMonthOrders = (clone $paidOrders)->whereMonth('created_at', $now->month)->get();
+            foreach ($currentMonthOrders as $order) {
+                $dayIdx = (int) $order->created_at->format('d') - 1;
                 foreach ($order->orderItems as $item) {
-                    $collectionName = $item->item->collection->name ?? null;
-                    if ($collectionName) {
-                        $dailySales[$dayIndex][$collectionName] += $item->price * $item->quantity;
+                    $name = $item->item->collection->name ?? null;
+                    if ($name && in_array($name, $collections)) {
+                        $dailySales[$dayIdx][$name] += $item->price * $item->quantity;
                     }
                 }
             }
 
-            // Convert to chart-ready array
-            $chartData = array_values($dailySales);
+            // 5. DETAILED ORDERS (For Chart Clicks)
+            $detailedOrders = $currentMonthOrders->map(fn ($o) => [
+                'id' => $o->id,
+                'order_number' => $o->order_number ?? '#'.$o->id,
+                'day' => (int) $o->created_at->format('d'),
+                'total' => $o->orderItems->sum(fn ($i) => $i->price * $i->quantity),
+                'customer' => $o->customer->name ?? 'Guest',
+                'items' => $o->orderItems->sum('quantity'),
+                'collections' => $o->orderItems->map(fn ($i) => $i->item->collection->name ?? 'Items')->unique()->values(),
+            ]);
 
-            // ───────────────────────────────────────────────
-            // RETURN JSON response scoped to this user only
-            // ───────────────────────────────────────────────
             return response()->json([
-                'totalRevenue' => round($totalRevenue),
-                'grossIncome' => round($grossIncome),
+                'grossIncome' => round($totalRevenue),
                 'netIncome' => round($netIncome),
                 'totalItemsSold' => (int) $totalItemsSold,
                 'totalCustomers' => (int) $totalCustomers,
-                'collectionSales' => $collectionSales,
-                'dailySales' => $chartData,
+                'avgOrderValue' => round($avgOrderValue),
+                'goalReached' => $goalReached,
+                'stockHealth' => $stockHealth,
+                'dailySales' => $dailySales,
+                'collectionSales' => $collections,
+                'detailedOrders' => $detailedOrders,
             ]);
         } catch (\Exception $e) {
-            Log::error('Dashboard summary error: '.$e->getMessage());
+            Log::error($e->getMessage());
 
             return response()->json(['message' => 'Server Error'], 500);
         }

@@ -11,16 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customers', function (Blueprint $table) {
+        Schema::create('customer_addresses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('first_name');
-            $table->string('last_name');
-            $table->string('contact_number');
-            $table->string('social_handle');
+            $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
+            $table->text('address');
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
         });
-
     }
 
     /**
@@ -28,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('customers');
+        Schema::dropIfExists('customer_addresses');
     }
 };
