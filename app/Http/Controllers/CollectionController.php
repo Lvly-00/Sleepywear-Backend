@@ -24,61 +24,146 @@ class CollectionController extends Controller
         return $number.$suffix.' Collection';
     }
 
+    // public function index(Request $request)
+    // {
+    //     $perPage = $request->input('per_page', 15);
+    //     $search = $request->input('search');
+
+    //     $query = Collection::where('user_id', auth()->id())
+    //         ->with(['items' => function ($q) {
+    //             $q->where('status', 'Available');
+    //         }])
+    //         ->withCount([
+    //             'items as qty',
+    //             'items as available_count' => function ($q) {
+    //                 $q->where('status', 'Available');
+    //             },
+    //         ])
+    //         ->withSum([
+    //             'items as total_sales' => function ($q) {
+    //                 $q->where('status', 'Sold Out');
+    //             },
+    //         ], 'price');
+
+    //     // Search Logic
+    //     if ($search) {
+    //         $query->where(function ($q) use ($search) {
+    //             $searchTerm = strtolower($search);
+    //             $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
+
+    //             if (is_numeric($search)) {
+    //                 $ordinalName = strtolower($this->ordinal($search));
+    //                 $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
+    //             }
+    //         });
+    //     }
+
+    //     $query->orderByRaw('
+    //     (SELECT COUNT(*) FROM items
+    //      WHERE items.collection_id = collections.id
+    //      AND items.status = \'Available\') > 0 DESC')
+    //         ->orderBy('release_date', 'desc')
+    //         ->orderBy('id', 'desc');
+
+    //     $collections = $query->cursorPaginate($perPage);
+
+    //     $collections->getCollection()->transform(function ($col) {
+    //         return [
+    //             'id' => $col->id,
+    //             'name' => $col->name,
+    //             'qty' => $col->qty ?? 0,
+    //             'available_count' => $col->available_count ?? 0,
+    //             'total_sales' => (float) ($col->total_sales ?? 0),
+    //             'capital' => (float) ($col->capital ?? 0),
+    //             'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
+    //             'created_at' => $col->created_at,
+    //             'items' => $col->items,
+
+    //         ];
+    //     });
+
+    //     return response()->json($collections);
+    // }
+
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
         $search = $request->input('search');
+        $userId = auth()->id();
 
-        $query = Collection::where('user_id', auth()->id())
-            ->with(['items' => function ($q) {
+        // 1. Safety Check: Ensure user is logged in
+        if (! $userId) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $query = Collection::where('user_id', $userId);
+
+        // 2. Aggregates (Standard SQL - Works on Neon/Postgres)
+        $query->withCount([
+            'items as qty',
+            'items as available_count' => function ($q) {
                 $q->where('status', 'Available');
-            }])
-            ->withCount([
-                'items as qty',
-                'items as available_count' => function ($q) {
-                    $q->where('status', 'Available');
-                },
-            ])
+            },
+        ])
             ->withSum([
                 'items as total_sales' => function ($q) {
                     $q->where('status', 'Sold Out');
                 },
             ], 'price');
 
-        // Search Logic
+        // 3. Case-Insensitive Search (Crucial for Postgres/Neon)
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $searchTerm = strtolower($search);
+                $searchTerm = mb_strtolower($search, 'UTF-8');
+
+                // Neon/Postgres is case-sensitive. LOWER() makes it work like MySQL.
                 $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
 
                 if (is_numeric($search)) {
-                    $ordinalName = strtolower($this->ordinal($search));
+                    $ordinalName = mb_strtolower($this->ordinal((int) $search), 'UTF-8');
                     $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
                 }
             });
         }
 
-        $query->orderByRaw('
-        (SELECT COUNT(*) FROM items
-         WHERE items.collection_id = collections.id
-         AND items.status = \'Available\') > 0 DESC')
+        /**
+         * 4. Ordering (Postgres/Neon Fix)
+         * MySQL allows: ORDER BY (condition) DESC
+         * Postgres REQUIRES: CASE WHEN (condition) THEN 0 ELSE 1 END
+         */
+        $query->orderByRaw("
+        CASE
+            WHEN EXISTS (
+                SELECT 1 FROM items
+                WHERE items.collection_id = collections.id
+                AND items.status = 'Available'
+            ) THEN 0
+            ELSE 1
+        END ASC
+    ")
             ->orderBy('release_date', 'desc')
             ->orderBy('id', 'desc');
 
+        /**
+         * 5. Pagination
+         * NOTE: If data still doesn't show in your UI,
+         * change 'cursorPaginate' to 'paginate' to test.
+         */
         $collections = $query->cursorPaginate($perPage);
 
+        // 6. Transform the data for the API response
         $collections->getCollection()->transform(function ($col) {
             return [
                 'id' => $col->id,
                 'name' => $col->name,
-                'qty' => $col->qty ?? 0,
-                'available_count' => $col->available_count ?? 0,
+                'qty' => (int) ($col->qty ?? 0),
+                'available_count' => (int) ($col->available_count ?? 0),
                 'total_sales' => (float) ($col->total_sales ?? 0),
                 'capital' => (float) ($col->capital ?? 0),
                 'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
+                'release_date' => $col->release_date,
+                'payment_cutoff_date' => $col->payment_cutoff_date,
                 'created_at' => $col->created_at,
-                'items' => $col->items,
-
             ];
         });
 
