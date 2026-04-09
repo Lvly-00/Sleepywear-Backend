@@ -91,67 +91,52 @@ class CollectionController extends Controller
         $search = $request->input('search');
         $userId = auth()->id();
 
-        // 1. Safety Check: Ensure user is logged in
-        if (! $userId) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
-
-        $query = Collection::where('user_id', $userId);
-
-        // 2. Aggregates (Standard SQL - Works on Neon/Postgres)
-        $query->withCount([
-            'items as qty',
-            'items as available_count' => function ($q) {
-                $q->where('status', 'Available');
-            },
-        ])
+        $query = Collection::where('user_id', $userId)
+            // Load items with a case-insensitive status check
+            ->with(['items' => function ($q) {
+                $q->whereRaw('LOWER(status) = ?', ['available']);
+            }])
+            ->withCount([
+                // Total items regardless of status
+                'items as qty',
+                // Count only available items (Case-Insensitive)
+                'items as available_count' => function ($q) {
+                    $q->whereRaw('LOWER(status) = ?', ['available']);
+                },
+            ])
             ->withSum([
                 'items as total_sales' => function ($q) {
-                    $q->where('status', 'Sold Out');
+                    $q->whereRaw('LOWER(status) = ?', ['sold out']);
                 },
-            ], 'price');
+        ], 'price');
 
-        // 3. Case-Insensitive Search (Crucial for Postgres/Neon)
+        // Search Logic (Case-Insensitive for Postgres)
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $searchTerm = mb_strtolower($search, 'UTF-8');
-
-                // Neon/Postgres is case-sensitive. LOWER() makes it work like MySQL.
+                $searchTerm = strtolower($search);
                 $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
 
                 if (is_numeric($search)) {
-                    $ordinalName = mb_strtolower($this->ordinal((int) $search), 'UTF-8');
+                    $ordinalName = strtolower($this->ordinal($search));
                     $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
                 }
             });
         }
 
-        /**
-         * 4. Ordering (Postgres/Neon Fix)
-         * MySQL allows: ORDER BY (condition) DESC
-         * Postgres REQUIRES: CASE WHEN (condition) THEN 0 ELSE 1 END
-         */
+        // Standard SQL ordering (Works on Neon and MySQL)
         $query->orderByRaw("
         CASE
             WHEN EXISTS (
                 SELECT 1 FROM items
                 WHERE items.collection_id = collections.id
-                AND items.status = 'Available'
-            ) THEN 0
-            ELSE 1
-        END ASC
+                AND LOWER(items.status) = 'available'
+            ) THEN 0 ELSE 1 END ASC
     ")
             ->orderBy('release_date', 'desc')
             ->orderBy('id', 'desc');
 
-        /**
-         * 5. Pagination
-         * NOTE: If data still doesn't show in your UI,
-         * change 'cursorPaginate' to 'paginate' to test.
-         */
         $collections = $query->cursorPaginate($perPage);
 
-        // 6. Transform the data for the API response
         $collections->getCollection()->transform(function ($col) {
             return [
                 'id' => $col->id,
@@ -160,10 +145,10 @@ class CollectionController extends Controller
                 'available_count' => (int) ($col->available_count ?? 0),
                 'total_sales' => (float) ($col->total_sales ?? 0),
                 'capital' => (float) ($col->capital ?? 0),
+                // Logic: If available_count > 0, status is Active
                 'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
-                'release_date' => $col->release_date,
-                'payment_cutoff_date' => $col->payment_cutoff_date,
                 'created_at' => $col->created_at,
+                'items' => $col->items,
             ];
         });
 
