@@ -30,16 +30,16 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Sleepywears', 'email' => 'sleepywears.ph1@gmail.com'],
 
             // ─── Instructors accounts ────────────────────────────────
-            ['name' => 'Elmer', 'email' => 'elmeralvarado@laverdad.edu.ph'],
-            ['name' => 'Giselle', 'email' => 'magiselledionisio@laverdad.edu.ph'],
-            ['name' => 'Gian', 'email' => 'giancarlo.gallon@laverdad.edu.ph'],
+            // ['name' => 'Elmer', 'email' => 'elmeralvarado@laverdad.edu.ph'],
+            // ['name' => 'Giselle', 'email' => 'magiselledionisio@laverdad.edu.ph'],
+            // ['name' => 'Gian', 'email' => 'giancarlo.gallon@laverdad.edu.ph'],
         ];
 
         foreach ($users as $user) {
             User::create([
                 'name' => $user['name'],
                 'email' => $user['email'],
-                'password' => bcrypt('P4$$w0rD!_Secure'),
+                'password' => bcrypt('password'),
             ]);
         }
 
@@ -57,7 +57,7 @@ class DatabaseSeeder extends Seeder
         //         'status' => 'Active',
         //     ]);
 
-            // ─── Seed 120 Items per Collection ──────────────────────
+        // ─── Seed 120 Items per Collection ──────────────────────
         //     $itemsData = [];
         //     for ($j = 1; $j <= 120; $j++) {
         //         $itemCode = sprintf('%03d%03d', $i, $j);
