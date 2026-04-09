@@ -16,90 +16,94 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Setup Parameters (Following Customer reference style)
         $perPage = $request->input('per_page', 15);
         $search = $request->input('search');
         $driver = DB::connection()->getDriverName();
 
-        // 2. Base Query with Joins
+        // 1. Base Query
+        // We explicitly load relationships
         $ordersQuery = Order::with(['items.item', 'payment'])
             ->where('orders.user_id', auth()->id())
-            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+            // Explicitly select orders.id and alias others to prevent collision
             ->select([
                 'orders.*',
-                'customers.first_name',
-                'customers.last_name',
-                'customers.contact_number',
-                'customers.social_handle',
-                'payments.payment_status',
-            ]);
+                'customers.first_name as customer_first_name',
+                'customers.last_name as customer_last_name',
+                'customers.contact_number as customer_contact',
+                'customers.social_handle as customer_social',
+                'payments.payment_status as status_from_payment',
+            ])
+            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id');
 
-        // 3. Multi-Driver Search Logic
+        // 2. Search Logic (Neon/Postgres optimized)
         if ($search) {
             $ordersQuery->where(function ($query) use ($search, $driver) {
                 if ($driver === 'pgsql') {
                     $query->where('customers.first_name', 'ILIKE', "%{$search}%")
                         ->orWhere('customers.last_name', 'ILIKE', "%{$search}%")
-                        ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) ILIKE ?", ["%{$search}%"])
-                        ->orWhereRaw('CAST(orders.order_number AS TEXT) ILIKE ?', ["%{$search}%"])
-                        ->orWhereRaw("LPAD(CAST(orders.order_number AS TEXT), 4, '0') ILIKE ?", ["%{$search}%"]);
-                } elseif ($driver === 'sqlite') {
-                    $query->where('customers.first_name', 'LIKE', "%{$search}%")
-                        ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
-                        ->orWhereRaw('CAST(orders.order_number AS TEXT) LIKE ?', ["%{$search}%"])
-                        ->orWhereRaw("printf('%04d', orders.order_number) LIKE ?", ["%{$search}%"]);
+                        ->orWhereRaw("CONCAT(customers.first_name, ' ', customers.last_name) ILIKE ?", ["%{$search}%"])
+                        ->orWhereRaw('CAST(orders.order_number AS TEXT) LIKE ?', ["%{$search}%"]);
                 } else {
                     $query->where('customers.first_name', 'LIKE', "%{$search}%")
                         ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
-                        ->orWhere('orders.order_number', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("LPAD(orders.order_number, 4, '0') LIKE ?", ["%{$search}%"]);
+                        ->orWhereRaw("CONCAT(customers.first_name, ' ', customers.last_name) LIKE ?", ["%{$search}%"])
+                        ->orWhere('orders.order_number', 'LIKE', "%{$search}%");
                 }
             });
         }
 
-        // 4. Deterministic Ordering for Cursor Pagination
-        // Note: We add orders.id at the end to ensure uniqueness for the cursor
+        /**
+         * 3. Ordering (Neon Fix)
+         * PostgreSQL handles CASE statements strictly.
+         * We also ensure we sort by a unique column (orders.id) last.
+         */
         $ordersQuery->orderByRaw("
-                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-            ")
+        CASE
+            WHEN payments.payment_status = 'Paid' THEN 1
+            WHEN payments.payment_status IS NULL THEN 0
+            ELSE 0
+        END ASC
+    ")
+            ->orderBy('orders.order_date', 'desc')
             ->orderBy('orders.id', 'desc');
 
-        $orders = $ordersQuery->cursorPaginate($perPage);
+        /**
+         * 4. Pagination
+         * NOTE: If using Neon, 'paginate' is more stable than 'cursorPaginate'
+         * when complex Joins are involved.
+         */
+        $orders = $ordersQuery->paginate($perPage);
 
+        // 5. Transform
         $orders->getCollection()->transform(function ($order) {
-            $lastOrderItem = $order->items->last();
+            // Safe access to items
+            $items = $order->items ?? collect();
+            $lastOrderItem = $items->last();
 
             return [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
                 'formatted_id' => str_pad($order->order_number, 4, '0', STR_PAD_LEFT),
-                'first_name' => $order->first_name,
-                'last_name' => $order->last_name,
-                'customer_full_name' => trim($order->first_name.' '.$order->last_name),
-
-                // ADD THESE MISSING FIELDS HERE:
+                'first_name' => $order->customer_first_name ?? $order->first_name,
+                'last_name' => $order->customer_last_name ?? $order->last_name,
+                'customer_full_name' => trim(($order->customer_first_name ?? $order->first_name).' '.($order->customer_last_name ?? $order->last_name)),
                 'address' => $order->address,
-                'contact_number' => $order->contact_number,
-                'social_handle' => $order->social_handle,
-                'payment_status' => $order->payment_status,
-
+                'contact_number' => $order->customer_contact ?? $order->contact_number,
+                'social_handle' => $order->customer_social ?? $order->social_handle,
+                'payment_status' => $order->status_from_payment ?? 'Unpaid',
                 'order_date' => $order->order_date,
-                'total' => $order->total,
-                'items_count' => $order->items->count(),
-                'items' => $order->items,
+                'total' => (float) $order->total,
+                'items_count' => $items->count(),
+                'items' => $items,
                 'payment' => $order->payment,
                 'payment_image_url' => $order->payment && $order->payment->payment_image
                     ? asset('storage/'.$order->payment->payment_image)
                     : null,
                 'created_at' => $order->created_at,
-                'last_item_image' => $lastOrderItem && $lastOrderItem->item
-            ? $lastOrderItem->item->image
-            : null,
+                'last_item_image' => ($lastOrderItem && $lastOrderItem->item)
+                    ? $lastOrderItem->item->image
+                    : null,
             ];
         });
 
