@@ -61,7 +61,7 @@ class CollectionController extends Controller
         $query->orderByRaw('
         (SELECT COUNT(*) FROM items
          WHERE items.collection_id = collections.id
-         AND items.status = "Available") > 0 DESC')
+         AND items.status = \'Available\') > 0 DESC')
             ->orderBy('release_date', 'desc')
             ->orderBy('id', 'desc');
 
