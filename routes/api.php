@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('collections', CollectionController::class);
     Route::apiResource('collections.items', ItemController::class)->shallow();
     Route::apiResource('items', ItemController::class); // optional standalone
+    Route::post('/items/temp-upload', [ItemController::class, 'tempUpload']);
 
     // Orders & Payments (nested)
     Route::apiResource('orders', OrderController::class);

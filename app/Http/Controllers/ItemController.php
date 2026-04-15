@@ -25,53 +25,54 @@ class ItemController extends Controller
         ]);
     }
 
-   public function index(Request $request)
-{
-    $collectionId = $request->query('collection_id');
+    public function index(Request $request)
+    {
+        $collectionId = $request->query('collection_id');
 
-    if (!$collectionId) {
-        return response()->json(['error' => 'collection_id is required'], 400);
+        if (! $collectionId) {
+            return response()->json(['error' => 'collection_id is required'], 400);
+        }
+
+        // 1. Fetch the specific collection to get its capital
+        $collection = Collection::where('id', $collectionId)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $collection) {
+            return response()->json(['error' => 'Collection not found'], 404);
+        }
+
+        $cloudName = config('services.cloudinary.cloud_name');
+
+        // 2. Get items and transform them
+        $items = Item::where('collection_id', $collectionId)
+            ->where('user_id', auth()->id())
+            ->with('collection')
+            ->get()
+            ->map(function ($item) use ($cloudName) {
+                $item->collection_name = $item->collection?->name ?? 'N/A';
+                $item->is_available = $item->status === 'Available';
+
+                if ($item->image && ! str_starts_with($item->image, 'http')) {
+                    $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
+                } else {
+                    $item->image_url = $item->image;
+                }
+
+                return $item;
+            });
+
+        // 3. Calculation Logic
+        $totalPriceOfItems = $items->sum('price');
+        $capital = $collection->capital; // From your migration
+        $revenue = $totalPriceOfItems - $capital;
+
+        return response()->json([
+            'items' => $items->values(),
+            'collection_capital' => $capital,
+            'calculated_revenue' => $revenue,
+        ]);
     }
-
-    // 1. Fetch the specific collection to get its capital
-    $collection = Collection::where('id', $collectionId)
-        ->where('user_id', auth()->id())
-        ->first();
-
-    if (!$collection) {
-        return response()->json(['error' => 'Collection not found'], 404);
-    }
-
-    $cloudName = config('services.cloudinary.cloud_name');
-
-    // 2. Get items and transform them
-    $items = Item::where('collection_id', $collectionId)
-        ->where('user_id', auth()->id())
-        ->with('collection')
-        ->get()
-        ->map(function ($item) use ($cloudName) {
-            $item->collection_name = $item->collection?->name ?? 'N/A';
-            $item->is_available = $item->status === 'Available';
-
-            if ($item->image && !str_starts_with($item->image, 'http')) {
-                $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
-            } else {
-                $item->image_url = $item->image;
-            }
-            return $item;
-        });
-
-    // 3. Calculation Logic
-    $totalPriceOfItems = $items->sum('price');
-    $capital = $collection->capital; // From your migration
-    $revenue = $totalPriceOfItems - $capital;
-
-    return response()->json([
-        'items' => $items->values(),
-        'collection_capital' => $capital,
-        'calculated_revenue' => $revenue,
-    ]);
-}
 
     public function show($id)
     {
@@ -102,7 +103,8 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'capital' => 'nullable|numeric|min:0',
-            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image_id' => 'required|string',
+            'image_url' => 'required|string',
         ]);
 
         $collection = Collection::where('id', $validated['collection_id'])
@@ -126,20 +128,20 @@ class ItemController extends Controller
 
         $code = $collectionNumber.'-'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
-        try {
-            $cloudinary = $this->getCloudinary();
-            $uploadedFile = $request->file('image');
+        // try {
+        //     $cloudinary = $this->getCloudinary();
+        //     $uploadedFile = $request->file('image');
 
-            $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
-                'folder' => 'items',
-            ]);
+        //     $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
+        //         'folder' => 'items',
+        //     ]);
 
-            $publicId = $result['public_id'];
-            $secureUrl = $result['secure_url'];
+        //     $publicId = $result['public_id'];
+        //     $secureUrl = $result['secure_url'];
 
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Image upload failed: '.$e->getMessage()], 500);
-        }
+        // } catch (\Exception $e) {
+        //     return response()->json(['error' => 'Image upload failed: '.$e->getMessage()], 500);
+        // }
 
         $item = Item::create([
             'collection_id' => $collection->id,
@@ -149,15 +151,18 @@ class ItemController extends Controller
             'price' => $validated['price'],
             'status' => 'Available',
             'capital' => $validated['capital'] ?? 0,
-            'image' => $publicId,
+            'image' => $validated['image_id'],
         ]);
 
         $item->load('collection');
         $item->collection_name = $item->collection?->name ?? 'N/A';
         $item->is_available = true;
-        $item->image_url = $secureUrl;
+        $item->image_url = $validated['image_url'];
 
-        return response()->json($item, 201);
+        return response()->json([
+            'item' => $item,
+            'image_url' => $validated['image_url'],
+        ], 201);
     }
 
     public function update(Request $request, Item $item)
@@ -171,8 +176,9 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'capital' => 'nullable|numeric|min:0',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'status' => 'nullable|string|in:Available,Sold Out',
+            'image_id' => 'nullable|string',
+            'image_url' => 'nullable|string',
         ]);
 
         $collection = Collection::where('id', $validated['collection_id'])
@@ -183,26 +189,8 @@ class ItemController extends Controller
             return response()->json(['error' => 'Collection not found or access denied'], 404);
         }
 
-        if ($request->hasFile('image')) {
-            $cloudinary = $this->getCloudinary();
-
-            if ($item->image && ! str_starts_with($item->image, 'http')) {
-                try {
-                    $cloudinary->uploadApi()->destroy($item->image);
-                } catch (\Exception $e) {
-                    // ignore
-                }
-            }
-
-            try {
-                $uploadedFile = $request->file('image');
-                $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
-                    'folder' => 'items',
-                ]);
-                $item->image = $result['public_id'];
-            } catch (\Exception $e) {
-                return response()->json(['error' => 'Image upload failed'], 500);
-            }
+        if (! empty($validated['image_id'])) {
+            $item->image = $validated['image_id'];
         }
 
         $item->update([
@@ -226,6 +214,25 @@ class ItemController extends Controller
         }
 
         return response()->json($item);
+    }
+
+    public function tempUpload(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
+        ]);
+
+        $cloudinary = $this->getCloudinary();
+        $uploadedFile = $request->file('image');
+
+        $result = $cloudinary->uploadApi()->upload($uploadedFile->getRealPath(), [
+            'folder' => 'items/temp',
+        ]);
+
+        return response()->json([
+            'public_id' => $result['public_id'],
+            'secure_url' => $result['secure_url'],
+        ]);
     }
 
     public function destroy(Item $item)

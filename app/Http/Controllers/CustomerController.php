@@ -15,51 +15,47 @@ class CustomerController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
-        $search = $request->input('search');
+        $search = trim($request->input('search', ''));
         $driver = DB::connection()->getDriverName();
 
-        $query = Customer::with('orders.invoice')
-            ->where('user_id', auth()->id())
-            ->orderBy('first_name', 'asc')
-            ->orderBy('id', 'asc');
+        $query = Customer::with(['orders.invoice', 'addresses'])
+            ->where('user_id', auth()->id());
 
-        if ($search) {
+        if (! empty($search)) {
             $query->where(function ($q) use ($search, $driver) {
+
+                $fullNameSql = "CONCAT_WS(' ', first_name, last_name)";
+
                 if ($driver === 'pgsql') {
                     $q->where('first_name', 'ILIKE', "%{$search}%")
                         ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) ILIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("$fullNameSql ILIKE ?", ["%{$search}%"])
                         ->orWhere('contact_number', 'ILIKE', "%{$search}%");
-                } elseif ($driver === 'sqlite') {
-                    $q->where('first_name', 'LIKE', "%{$search}%")
-                        ->orWhere('last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
-                        ->orWhere('contact_number', 'LIKE', "%{$search}%");
                 } else {
                     $q->where('first_name', 'LIKE', "%{$search}%")
                         ->orWhere('last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("$fullNameSql LIKE ?", ["%{$search}%"])
                         ->orWhere('contact_number', 'LIKE', "%{$search}%");
                 }
             });
         }
 
-        // Execute Cursor Pagination
+        $query->orderBy('first_name')
+            ->orderBy('id');
+
         $customers = $query->cursorPaginate($perPage);
 
-        // Transform data
-        $customers->getCollection()->transform(function ($customer) {
+        $customers->through(function ($customer) {
             return [
                 'id' => $customer->id,
                 'first_name' => $customer->first_name,
                 'last_name' => $customer->last_name,
                 'full_name' => trim($customer->first_name.' '.$customer->last_name),
-                // REMOVED: 'address' => $customer->address, (This was the old column causing 500 errors)
                 'contact_number' => $customer->contact_number,
                 'social_handle' => $customer->social_handle,
                 'orders' => $customer->orders,
-                'addresses' => $customer->addresses->pluck('address'), // New relationship
-                'address' => $customer->addresses->first()?->address ?? 'No address set', // Default for display
+                'addresses' => $customer->addresses->pluck('address'),
+                'address' => $customer->addresses->first()?->address ?? 'No address set',
                 'created_at' => $customer->created_at,
             ];
         });
