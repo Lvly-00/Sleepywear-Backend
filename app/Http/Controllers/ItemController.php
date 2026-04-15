@@ -25,57 +25,53 @@ class ItemController extends Controller
         ]);
     }
 
-    public function index(Request $request)
-    {
-        $collectionId = $request->query('collection_id');
+   public function index(Request $request)
+{
+    $collectionId = $request->query('collection_id');
 
-        if (! $collectionId) {
-            return response()->json(['error' => 'collection_id is required'], 400);
-        }
-
-        // Get cloud name dynamically for URL construction
-        $cloudName = config('services.cloudinary.cloud_name');
-
-        $items = Item::where('collection_id', $collectionId)
-            ->where('user_id', auth()->id())
-            ->with('collection')
-            ->get()
-            ->map(function ($item) use ($cloudName) { // Pass cloudName to closure
-                $item->collection_name = $item->collection?->name ?? 'N/A';
-                $item->is_available = $item->status === 'Available';
-
-                // Construct URL dynamically
-                if ($item->image && ! str_starts_with($item->image, 'http')) {
-                    $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
-                } else {
-                    $item->image_url = $item->image;
-                }
-
-                return $item;
-            })
-            ->sort(function ($a, $b) {
-                $statusSort = function ($status) {
-                    return match ($status) {
-                        'Available' => 1,
-                        'Sold Out' => 2,
-                        default => 3,
-                    };
-                };
-                $aStatus = $statusSort($a->status);
-                $bStatus = $statusSort($b->status);
-                if ($aStatus !== $bStatus) {
-                    return $aStatus <=> $bStatus;
-                }
-                if ($aStatus === 1 && $bStatus === 1) {
-                    return $a->created_at <=> $b->created_at;
-                }
-
-                return $a->updated_at <=> $b->updated_at;
-            })
-            ->values();
-
-        return response()->json($items);
+    if (!$collectionId) {
+        return response()->json(['error' => 'collection_id is required'], 400);
     }
+
+    // 1. Fetch the specific collection to get its capital
+    $collection = Collection::where('id', $collectionId)
+        ->where('user_id', auth()->id())
+        ->first();
+
+    if (!$collection) {
+        return response()->json(['error' => 'Collection not found'], 404);
+    }
+
+    $cloudName = config('services.cloudinary.cloud_name');
+
+    // 2. Get items and transform them
+    $items = Item::where('collection_id', $collectionId)
+        ->where('user_id', auth()->id())
+        ->with('collection')
+        ->get()
+        ->map(function ($item) use ($cloudName) {
+            $item->collection_name = $item->collection?->name ?? 'N/A';
+            $item->is_available = $item->status === 'Available';
+
+            if ($item->image && !str_starts_with($item->image, 'http')) {
+                $item->image_url = "https://res.cloudinary.com/{$cloudName}/image/upload/".$item->image;
+            } else {
+                $item->image_url = $item->image;
+            }
+            return $item;
+        });
+
+    // 3. Calculation Logic
+    $totalPriceOfItems = $items->sum('price');
+    $capital = $collection->capital; // From your migration
+    $revenue = $totalPriceOfItems - $capital;
+
+    return response()->json([
+        'items' => $items->values(),
+        'collection_capital' => $capital,
+        'calculated_revenue' => $revenue,
+    ]);
+}
 
     public function show($id)
     {

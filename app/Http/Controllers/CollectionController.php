@@ -84,7 +84,6 @@ class CollectionController extends Controller
 
     //     return response()->json($collections);
     // }
-
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
@@ -92,25 +91,24 @@ class CollectionController extends Controller
         $userId = auth()->id();
 
         $query = Collection::where('user_id', $userId)
-            // Load items with a case-insensitive status check
             ->with(['items' => function ($q) {
                 $q->whereRaw('LOWER(status) = ?', ['available']);
             }])
             ->withCount([
-                // Total items regardless of status
                 'items as qty',
-                // Count only available items (Case-Insensitive)
                 'items as available_count' => function ($q) {
                     $q->whereRaw('LOWER(status) = ?', ['available']);
                 },
             ])
+            // 1. Sum of SOLD items (for "money collected so far")
             ->withSum([
                 'items as total_sales' => function ($q) {
                     $q->whereRaw('LOWER(status) = ?', ['sold out']);
                 },
-        ], 'price');
+        ], 'price')
+            // 2. Sum of ALL items (to calculate total potential revenue)
+            ->withSum('items as total_value', 'price');
 
-        // Search Logic (Case-Insensitive for Postgres)
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $searchTerm = strtolower($search);
@@ -123,7 +121,6 @@ class CollectionController extends Controller
             });
         }
 
-        // Standard SQL ordering (Works on Neon and MySQL)
         $query->orderByRaw("
         CASE
             WHEN EXISTS (
@@ -138,14 +135,18 @@ class CollectionController extends Controller
         $collections = $query->cursorPaginate($perPage);
 
         $collections->getCollection()->transform(function ($col) {
+            $totalValue = (float) ($col->total_value ?? 0);
+            $capital = (float) ($col->capital ?? 0);
+
             return [
                 'id' => $col->id,
                 'name' => $col->name,
                 'qty' => (int) ($col->qty ?? 0),
                 'available_count' => (int) ($col->available_count ?? 0),
-                'total_sales' => (float) ($col->total_sales ?? 0),
-                'capital' => (float) ($col->capital ?? 0),
-                // Logic: If available_count > 0, status is Active
+                'total_sales' => (float) ($col->total_sales ?? 0), // Money from sold items
+                'capital' => $capital,
+                // 3. Formula: Revenue = Total value of items - Capital
+                'revenue' => $totalValue - $capital,
                 'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
                 'created_at' => $col->created_at,
                 'items' => $col->items,
