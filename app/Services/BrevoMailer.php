@@ -38,7 +38,7 @@ class BrevoMailer
             'htmlContent' => view('emails.password-reset', [
                 'otp' => $otp,
                 'year' => date('Y'),
-                'purpose' => $purpose // You can use this in your blade file to change text
+                'purpose' => $purpose 
             ])->render(),
         ];
 
