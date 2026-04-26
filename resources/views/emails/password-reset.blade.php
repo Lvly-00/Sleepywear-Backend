@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Verification Code - Sleepywear Inventory</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -120,9 +121,11 @@
                 margin-top: 0;
                 border-radius: 0;
             }
+
             .content {
                 padding: 30px 20px;
             }
+
             .otp-code {
                 font-size: 32px;
                 letter-spacing: 5px;
@@ -130,6 +133,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="wrapper">
         <div class="container">
@@ -139,20 +143,38 @@
             </div>
 
             <div class="content">
-                <h2>Verification Code</h2>
+                <h2>
+                    {{ $purpose === 'biometric' ? 'Biometric Registration Code' : 'Password Reset Code' }}
+                </h2>
+
                 <p>Hello,</p>
-                <p>We received a request to reset your Sleepywear Inventory account password. Please enter the following code in the application to proceed:</p>
+
+                <p>
+                    @if ($purpose === 'biometric')
+                        You requested to enable biometric login for your Sleepywear Inventory account.
+                        Please use the verification code below to continue:
+                    @else
+                        We received a request to reset your Sleepywear Inventory account password.
+                        Please enter the following code in the application to proceed:
+                    @endif
+                </p>
 
                 <div class="otp-container">
                     <h1 class="otp-code">{{ $otp }}</h1>
                 </div>
 
-                <p style="margin-top: 20px; font-size: 14px; color: #8898aa;">
-                    This code will expire in 60 minutes for security reasons.
-                </p>
+                @if ($purpose === 'biometric')
+                    <p> This code will expire in 10 minutes for security reasons.</p>
+                @else
+                    <p> This code will expire in 60 minutes for security reasons.</p>
+                @endif
 
                 <div class="secondary-text">
-                    <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+                    @if ($purpose === 'biometric')
+                        <p> If you did not request biometric setup, please ignore this email.</p>
+                    @else
+                        <p> If you did not request a password reset, please ignore this email. </p>
+                    @endif
                 </div>
             </div>
         </div>
@@ -163,4 +185,5 @@
         </div>
     </div>
 </body>
+
 </html>
