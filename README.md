@@ -31,7 +31,7 @@ This system improves **accuracy, efficiency, organization, and overall business 
 
 **Frontend:**
 
-* React.js
+* React Native
 
 **Backend:**
 
@@ -55,7 +55,7 @@ This system improves **accuracy, efficiency, organization, and overall business 
 
 ### Backend (Laravel API)
 
-1. Clone the repository:
+1. Clone the repository: https://github.com/Lvly-00/Sleepywear-Backend
 
    ```
    git clone <backend-repo-url>
@@ -96,12 +96,12 @@ This system improves **accuracy, efficiency, organization, and overall business 
 
 ---
 
-### Frontend (React.js)
+### Mobile App (React Native)
 
-1. Clone the repository: https://github.com/Lvly-00/Sleepywear-Frontend.git
+1. Clone the repository: https://github.com/Lvly-00/Sleepywears-Mobile.git
 
    ```
-   git clone <frontend-repo-url>
+   git clone <mobile-repo-url>
    ```
 
 2. Install dependencies:
@@ -115,15 +115,19 @@ This system improves **accuracy, efficiency, organization, and overall business 
 4. Start the app:
 
    ```
-   npm run dev
+   npx react-native run-android 
+   ```
+   or 
+   ```
+   npm start
    ```
 
 ---
 
 ## Deployment Links
 
-**Frontend:**
-https://sleepywear-frontend.onrender.com
+**Mobile App:**
+https://drive.google.com/drive/folders/1xLLpN9cdWZ6v0L2dS31Hdnbrprp9OeXz?usp=sharing
 
 **Backend:**
 https://sleepywear-backend.onrender.com
