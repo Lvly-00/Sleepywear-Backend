@@ -105,7 +105,7 @@ class CollectionController extends Controller
                 'items as total_sales' => function ($q) {
                     $q->whereRaw('LOWER(status) = ?', ['sold out']);
                 },
-        ], 'price')
+            ], 'price')
             // 2. Sum of ALL items (to calculate total potential revenue)
             ->withSum('items as total_value', 'price');
 
@@ -145,8 +145,7 @@ class CollectionController extends Controller
                 'available_count' => (int) ($col->available_count ?? 0),
                 'total_sales' => (float) ($col->total_sales ?? 0), // Money from sold items
                 'capital' => $capital,
-                // 3. Formula: Revenue = Total value of items - Capital
-                'revenue' => $totalValue - $capital,
+                'revenue' => max(0, $totalValue),
                 'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
                 'created_at' => $col->created_at,
                 'items' => $col->items,

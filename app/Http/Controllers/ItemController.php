@@ -63,13 +63,20 @@ class ItemController extends Controller
             });
 
         // 3. Calculation Logic
-        $totalPriceOfItems = $items->sum('price');
-        $capital = $collection->capital; // From your migration
-        $revenue = $totalPriceOfItems - $capital;
+        $capital = (float) $collection->capital;
+
+        // Only SOLD items count as revenue
+        $totalSales = $items
+            ->where('status', 'Sold Out')
+            ->sum('price');
+
+        // Revenue should never be negative
+        $revenue = max(0, $totalSales);
 
         return response()->json([
             'items' => $items->values(),
             'collection_capital' => $capital,
+            'total_sales' => $totalSales,
             'calculated_revenue' => $revenue,
         ]);
     }
