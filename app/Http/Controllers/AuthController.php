@@ -27,41 +27,33 @@ class AuthController extends Controller
     {
         $throttleKey = $this->throttleKey($request);
 
-        // Check rate limit BEFORE revealing user existence
         if (RateLimiter::tooManyAttempts($throttleKey, self::MaX_LOGIN_ATTEMPTS)) {
             return $this->tooManyAttemptsResponse($throttleKey, $request);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        //  EMAIL NOT FOUND
+        if (! $user) {
             RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
 
             return response()->json([
-                'error' => 'Invalid credentials.',
-            ], 401);
-        }
-
-        // If user does not exist
-        if (! $user) {
-            RateLimiter::hit($this->throttleKey($request), 60);
-
-            return response()->json([
                 'message' => 'No account found with this email.',
-            ], 401);
+            ], 404);
         }
 
-        // If password is wrong
+        //  WRONG PASSWORD
         if (! Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($this->throttleKey($request), 60);
+            RateLimiter::hit($throttleKey, self::DECAY_MINUTES * 60);
 
             return response()->json([
                 'message' => 'Your password is incorrect.',
             ], 401);
         }
 
-        // Success: clear attempts and generate token
+        //  SUCCESS
         RateLimiter::clear($throttleKey);
+
         $token = $user->createToken('api_token')->plainTextToken;
 
         return response()->json([
@@ -88,10 +80,10 @@ class AuthController extends Controller
     /**
      * Send password reset email
      */
-     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $user = User::where('email', $request->email)->first();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => "We can't find a user with that email."], 404);
         }
 
@@ -107,7 +99,6 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Verification code sent! Check your email.']);
     }
-
 
     /**
      * Verify if the 6-digit OTP is correct
