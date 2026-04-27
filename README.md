@@ -2,10 +2,9 @@
 
 ## Team Information
 
-* **Regino, Ruth May** — Project Manager
+* **Regino, Ruth May** — Project Manager & Software Quality Assurance
 * **Pintes, Lovely Heart** — Full-Stack Developer
 * **Latina, Sofia Isabel** — UI/UX Designer
-* **Del Pilar, Kirk Percival** — Software Quality Assurance
 * **Silverio, Myriah Vielle A.** — Business Analyst
 
 ---
