@@ -24,14 +24,17 @@ class CustomerController extends Controller
         if (! empty($search)) {
             $query->where(function ($q) use ($search, $driver) {
 
-                $fullNameSql = "CONCAT_WS(' ', first_name, last_name)";
-
                 if ($driver === 'pgsql') {
+                    $fullNameSql = "first_name || ' ' || last_name";
+
                     $q->where('first_name', 'ILIKE', "%{$search}%")
                         ->orWhere('last_name', 'ILIKE', "%{$search}%")
                         ->orWhereRaw("$fullNameSql ILIKE ?", ["%{$search}%"])
                         ->orWhere('contact_number', 'ILIKE', "%{$search}%");
+
                 } else {
+                    $fullNameSql = "CONCAT(first_name, ' ', last_name)";
+
                     $q->where('first_name', 'LIKE', "%{$search}%")
                         ->orWhere('last_name', 'LIKE', "%{$search}%")
                         ->orWhereRaw("$fullNameSql LIKE ?", ["%{$search}%"])

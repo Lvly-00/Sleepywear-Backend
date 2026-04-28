@@ -6,6 +6,8 @@ use App\Models\Collection;
 use App\Models\Item;
 use Cloudinary\Cloudinary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Models\OrderItem;
 
 class ItemController extends Controller
 {
@@ -47,7 +49,7 @@ class ItemController extends Controller
         // 2. Get items and transform them
         $items = Item::where('collection_id', $collectionId)
             ->where('user_id', auth()->id())
-            ->with('collection')
+            ->with(['collection', 'order.payment'])
             ->get()
             ->map(function ($item) use ($cloudName) {
                 $item->collection_name = $item->collection?->name ?? 'N/A';
@@ -66,12 +68,29 @@ class ItemController extends Controller
         $capital = (float) $collection->capital;
 
         // Only SOLD items count as revenue
-        $totalSales = $items
-            ->where('status', 'Sold Out')
-            ->sum('price');
+        $totalSales = OrderItem::where('user_id', auth()->id())
+            ->whereHas('order.payment', function ($q) {
+                $q->where('payment_status', 'Paid');
+            })
+            ->whereHas('item', function ($q) use ($collectionId) {
+                $q->where('collection_id', $collectionId);
+            })
+            ->get()
+            ->sum(function ($oi) {
+                return $oi->price * $oi->quantity;
+            });
 
         // Revenue should never be negative
         $revenue = max(0, $totalSales);
+
+        Log::info($items->map(function ($item) {
+            return [
+                'item_id' => $item->id,
+                'has_order' => (bool) $item->order,
+                'has_payment' => (bool) ($item->order?->payment),
+                'payment_status' => $item->order?->payment?->payment_status,
+            ];
+        }));
 
         return response()->json([
             'items' => $items->values(),

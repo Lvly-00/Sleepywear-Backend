@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Verification Code - Sleepywear Inventory</title>
+    <title>Verification Code - Sleepywears Inventory</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         /* Base Styles */
@@ -138,7 +138,7 @@
     <div class="wrapper">
         <div class="container">
             <div class="header">
-                <h1>Sleepywear</h1>
+                <h1>Sleepywears</h1>
                 <div class="sub-header">Inventory Management System</div>
             </div>
 
@@ -152,10 +152,10 @@
 
                 <p>
                     <?php if($purpose === 'biometric'): ?>
-                        You requested to enable biometric login for your Sleepywear Inventory account.
+                        You requested to enable biometric login for your Sleepywears Inventory account.
                         Please use the verification code below to continue:
                     <?php else: ?>
-                        We received a request to reset your Sleepywear Inventory account password.
+                        We received a request to reset your Sleepywears Inventory account password.
                         Please enter the following code in the application to proceed:
                     <?php endif; ?>
                 </p>
@@ -181,7 +181,7 @@
         </div>
 
         <div class="footer">
-            <p>&copy; <?php echo e($year); ?> Sleepywear Inventory. All rights reserved.</p>
+            <p>&copy; <?php echo e($year); ?> Sleepywears Inventory. All rights reserved.</p>
             <p>Apalit, Pampanga</p>
         </div>
     </div>

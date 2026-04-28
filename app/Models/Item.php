@@ -35,4 +35,14 @@ class Item extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function payment()
+    {
+        return $this->belongsTo(Payment::class);
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
 }

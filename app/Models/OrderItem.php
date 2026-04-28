@@ -37,6 +37,6 @@ class OrderItem extends Model
 
     public function collection()
     {
-        return $this->item->collection();
+        return $this->item?->collection();
     }
 }
