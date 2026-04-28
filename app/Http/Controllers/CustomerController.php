@@ -14,52 +14,50 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        try {
-            $perPage = $request->input('per_page', 20);
-            $search = trim($request->input('search', ''));
+        $perPage = $request->input('per_page', 15);
+        $search = trim($request->input('search', ''));
 
-            $query = Customer::with(['addresses']) // Reduced relations for speed
-                ->where('user_id', auth()->id());
+        $query = Customer::with(['orders.invoice', 'addresses'])
+            ->where('user_id', auth()->id());
 
-            if (! empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $term = "%{$search}%";
-                    $q->where('first_name', 'LIKE', $term)
-                        ->orWhere('last_name', 'LIKE', $term)
-                        ->orWhere('contact_number', 'LIKE', $term);
+        if (! empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $term = "%{$search}%";
 
-                    // Cross-database compatible Full Name search
-                    $driver = DB::connection()->getDriverName();
-                    if ($driver === 'sqlite' || $driver === 'pgsql') {
-                        $q->orWhereRaw("first_name || ' ' || last_name LIKE ?", [$term]);
-                    } else {
-                        $q->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$term]);
-                    }
-                });
-            }
+                // 1. Search individual columns
+                $q->where('first_name', 'LIKE', $term)
+                  ->orWhere('last_name', 'LIKE', $term)
+                  ->orWhere('contact_number', 'LIKE', $term);
 
-            // cursorPaginate requires a stable sort order
-            $customers = $query->orderBy('first_name', 'asc')
-                ->orderBy('id', 'asc')
-                ->cursorPaginate($perPage);
-
-            $customers->through(function ($customer) {
-                return [
-                    'id' => $customer->id,
-                    'first_name' => $customer->first_name,
-                    'last_name' => $customer->last_name,
-                    'contact_number' => $customer->contact_number,
-                    'address' => $customer->addresses->first()?->address ?? 'No address set',
-                ];
+                // 2. Search Full Name using SQLite concatenation (||)
+                // COALESCE handles cases where first_name or last_name might be NULL
+                $q->orWhereRaw("COALESCE(first_name, '') || ' ' || COALESCE(last_name, '') LIKE ?", [$term]);
             });
-
-            return response()->json($customers);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
         }
-    }
 
+        // For cursor pagination, always use a stable sort order
+        $query->orderBy('first_name')
+            ->orderBy('id');
+
+        $customers = $query->cursorPaginate($perPage);
+
+        $customers->through(function ($customer) {
+            return [
+                'id' => $customer->id,
+                'first_name' => $customer->first_name,
+                'last_name' => $customer->last_name,
+                'full_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
+                'contact_number' => $customer->contact_number,
+                'social_handle' => $customer->social_handle,
+                'orders' => $customer->orders,
+                'addresses' => $customer->addresses->pluck('address'),
+                'address' => $customer->addresses->first()?->address ?? 'No address set',
+                'created_at' => $customer->created_at,
+            ];
+        });
+
+        return response()->json($customers);
+    }
     /**
      * Store a newly created customer.
      */

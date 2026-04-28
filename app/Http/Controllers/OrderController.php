@@ -15,80 +15,83 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     public function index(Request $request)
-{
-    try {
-        $perPage = $request->input('per_page', 15);
-        $search = trim($request->input('search', ''));
+    {
+        try {
+            $perPage = $request->input('per_page', 15);
+            $search = trim($request->input('search', ''));
 
-        // 1. Base Query with relations
-        // We load relations HERE, not inside a loop later.
-        $query = Order::with(['items.item', 'payment'])
-            ->where('orders.user_id', auth()->id())
-            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
-            ->select([
-                'orders.id',
-                'orders.order_number',
-                'orders.order_date',
-                'orders.total',
-                'orders.address',
-                'orders.created_at',
-                'customers.first_name as cust_fn',
-                'customers.last_name as cust_ln',
-                'customers.contact_number as cust_phone',
-                'customers.social_handle as cust_social',
-                'payments.payment_status as pay_stat',
+            // Base Query
+            $query = Order::with(['items.item', 'payment'])
+                ->where('orders.user_id', auth()->id())
+                ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+                ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+                ->select([
+                    'orders.id',
+                    'orders.order_number',
+                    'orders.order_date',
+                    'orders.total',
+                    'orders.address',
+                    'orders.created_at',
+                    'customers.first_name as cust_fn',
+                    'customers.last_name as cust_ln',
+                    'customers.contact_number as cust_phone',
+                    'customers.social_handle as cust_social',
+                    'payments.payment_status as pay_stat',
+                ]);
+
+            // Search Logic
+            if (! empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $term = "%{$search}%";
+
+                    // SQLite uses LIKE (not ILIKE)
+                    $q->where('customers.first_name', 'LIKE', $term)
+                        ->orWhere('customers.last_name', 'LIKE', $term);
+
+                    // SQLite concatenation uses ||
+                    // SQLite casting uses CAST(column AS TEXT)
+                    $q->orWhereRaw("COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, '') LIKE ?", [$term])
+                        ->orWhereRaw('CAST(orders.order_number AS TEXT) LIKE ?', [$term]);
+                });
+            }
+
+            // Paginate
+            $orders = $query->orderBy('orders.id', 'desc')->cursorPaginate($perPage);
+
+            // Transform Data
+            $transformed = collect($orders->items())->map(function ($order) {
+                $lastItem = $order->items ? $order->items->last() : null;
+
+                return [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'formatted_id' => str_pad($order->order_number, 4, '0', STR_PAD_LEFT),
+                    'first_name' => $order->cust_fn,
+                    'last_name' => $order->cust_ln,
+                    'customer_full_name' => trim(($order->cust_fn ?? '').' '.($order->cust_ln ?? '')),
+                    'address' => $order->address,
+                    'contact_number' => $order->cust_phone,
+                    'social_handle' => $order->cust_social,
+                    'payment_status' => $order->pay_stat ?? 'Unpaid',
+                    'order_date' => $order->order_date,
+                    'total' => $order->total,
+                    'items' => $order->items,
+                    'payment' => $order->payment,
+                    'last_item_image' => ($lastItem && $lastItem->item) ? $lastItem->item->image : null,
+                ];
+            });
+
+            return response()->json([
+                'data' => $transformed,
+                'next_cursor' => $orders->nextCursor() ? $orders->nextCursor()->encode() : null,
             ]);
 
-        // 2. Search Logic
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $term = "%{$search}%";
-                $q->where('customers.first_name', 'ILIKE', $term)
-                  ->orWhere('customers.last_name', 'ILIKE', $term)
-                  ->orWhereRaw("customers.first_name || ' ' || customers.last_name ILIKE ?", [$term])
-                  ->orWhereRaw("orders.order_number::text ILIKE ?", [$term]);
-            });
+        } catch (\Exception $e) {
+            Log::error('Order Index Error: '.$e->getMessage());
+
+            return response()->json(['error' => 'Internal Server Error', 'details' => $e->getMessage()], 500);
         }
-
-        // 3. Paginate
-        // We sort by orders.id to ensure the cursor is unique and stable
-        $orders = $query->orderBy('orders.id', 'desc')->cursorPaginate($perPage);
-
-        // 4. Map Data
-        // Use the relations loaded in step 1. Do NOT call Order::find() here.
-        $transformed = collect($orders->items())->map(function ($order) {
-            $lastItem = $order->items ? $order->items->last() : null;
-
-            return [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'formatted_id' => str_pad($order->order_number, 4, '0', STR_PAD_LEFT),
-                'first_name' => $order->cust_fn,
-                'last_name' => $order->cust_ln,
-                'customer_full_name' => trim(($order->cust_fn ?? '') . ' ' . ($order->cust_ln ?? '')),
-                'address' => $order->address,
-                'contact_number' => $order->cust_phone,
-                'social_handle' => $order->cust_social,
-                'payment_status' => $order->pay_stat ?? 'Unpaid',
-                'order_date' => $order->order_date,
-                'total' => $order->total,
-                'items' => $order->items,
-                'payment' => $order->payment,
-                'last_item_image' => ($lastItem && $lastItem->item) ? $lastItem->item->image : null,
-            ];
-        });
-
-        return response()->json([
-            'data' => $transformed,
-            'next_cursor' => $orders->nextCursor() ? $orders->nextCursor()->encode() : null,
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('Order Index Error: ' . $e->getMessage());
-        return response()->json(['error' => 'Internal Server Error', 'details' => $e->getMessage()], 500);
     }
-}
 
     public function store(Request $request)
     {

@@ -87,11 +87,13 @@ class CollectionController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 15);
-        $search = $request->input('search');
+        $search = trim($request->input('search', ''));
         $userId = auth()->id();
 
         $query = Collection::where('user_id', $userId)
             ->with(['items' => function ($q) {
+                // SQLite string comparison is usually case-insensitive,
+                // but we use LOWER to be absolutely sure.
                 $q->whereRaw('LOWER(status) = ?', ['available']);
             }])
             ->withCount([
@@ -100,35 +102,36 @@ class CollectionController extends Controller
                     $q->whereRaw('LOWER(status) = ?', ['available']);
                 },
             ])
-            // 1. Sum of SOLD items (for "money collected so far")
             ->withSum([
                 'items as total_sales' => function ($q) {
                     $q->whereRaw('LOWER(status) = ?', ['sold out']);
                 },
             ], 'price')
-            // 2. Sum of ALL items (to calculate total potential revenue)
             ->withSum('items as total_value', 'price');
 
+        // Search Logic optimized for SQLite
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $searchTerm = strtolower($search);
-                $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchTerm}%"]);
+                // In SQLite, LIKE is case-insensitive by default
+                $q->where('name', 'LIKE', "%{$search}%");
 
                 if (is_numeric($search)) {
-                    $ordinalName = strtolower($this->ordinal($search));
-                    $q->orWhereRaw('LOWER(name) LIKE ?', ["%{$ordinalName}%"]);
+                    $ordinalName = $this->ordinal((int) $search);
+                    $q->orWhere('name', 'LIKE', "%{$ordinalName}%");
                 }
             });
         }
 
+        // Ordering Logic optimized for SQLite
+        // Moves collections with "Available" items to the top
         $query->orderByRaw("
-        CASE
-            WHEN EXISTS (
-                SELECT 1 FROM items
-                WHERE items.collection_id = collections.id
-                AND LOWER(items.status) = 'available'
-            ) THEN 0 ELSE 1 END ASC
-    ")
+            CASE
+                WHEN EXISTS (
+                    SELECT 1 FROM items
+                    WHERE items.collection_id = collections.id
+                    AND LOWER(items.status) = 'available'
+                ) THEN 0 ELSE 1 END ASC
+        ")
             ->orderBy('release_date', 'desc')
             ->orderBy('id', 'desc');
 
@@ -143,7 +146,7 @@ class CollectionController extends Controller
                 'name' => $col->name,
                 'qty' => (int) ($col->qty ?? 0),
                 'available_count' => (int) ($col->available_count ?? 0),
-                'total_sales' => (float) ($col->total_sales ?? 0), // Money from sold items
+                'total_sales' => (float) ($col->total_sales ?? 0),
                 'capital' => $capital,
                 'revenue' => max(0, $totalValue),
                 'status' => ($col->available_count > 0) ? 'Active' : 'Sold Out',
