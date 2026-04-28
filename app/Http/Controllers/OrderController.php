@@ -15,96 +15,80 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     public function index(Request $request)
-    {
-        // 1. Setup Parameters (Following Customer reference style)
+{
+    try {
         $perPage = $request->input('per_page', 15);
-        $search = $request->input('search');
-        $driver = DB::connection()->getDriverName();
+        $search = trim($request->input('search', ''));
 
-        // 2. Base Query with Joins
-        $ordersQuery = Order::with(['items.item', 'payment'])
+        // 1. Base Query with relations
+        // We load relations HERE, not inside a loop later.
+        $query = Order::with(['items.item', 'payment'])
             ->where('orders.user_id', auth()->id())
             ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
             ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
             ->select([
-                'orders.*',
-                'customers.first_name',
-                'customers.last_name',
-                'customers.contact_number',
-                'customers.social_handle',
-                'payments.payment_status',
+                'orders.id',
+                'orders.order_number',
+                'orders.order_date',
+                'orders.total',
+                'orders.address',
+                'orders.created_at',
+                'customers.first_name as cust_fn',
+                'customers.last_name as cust_ln',
+                'customers.contact_number as cust_phone',
+                'customers.social_handle as cust_social',
+                'payments.payment_status as pay_stat',
             ]);
 
-        // 3. Multi-Driver Search Logic
-        if ($search) {
-            $ordersQuery->where(function ($query) use ($search, $driver) {
-                if ($driver === 'pgsql') {
-                    $query->where('customers.first_name', 'ILIKE', "%{$search}%")
-                        ->orWhere('customers.last_name', 'ILIKE', "%{$search}%")
-                        ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) ILIKE ?", ["%{$search}%"])
-                        ->orWhereRaw('CAST(orders.order_number AS TEXT) ILIKE ?', ["%{$search}%"])
-                        ->orWhereRaw("LPAD(CAST(orders.order_number AS TEXT), 4, '0') ILIKE ?", ["%{$search}%"]);
-                } elseif ($driver === 'sqlite') {
-                    $query->where('customers.first_name', 'LIKE', "%{$search}%")
-                        ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("(COALESCE(customers.first_name, '') || ' ' || COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
-                        ->orWhereRaw('CAST(orders.order_number AS TEXT) LIKE ?', ["%{$search}%"])
-                        ->orWhereRaw("printf('%04d', orders.order_number) LIKE ?", ["%{$search}%"]);
-                } else {
-                    $query->where('customers.first_name', 'LIKE', "%{$search}%")
-                        ->orWhere('customers.last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("CONCAT(COALESCE(customers.first_name, ''), ' ', COALESCE(customers.last_name, '')) LIKE ?", ["%{$search}%"])
-                        ->orWhere('orders.order_number', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("LPAD(orders.order_number, 4, '0') LIKE ?", ["%{$search}%"]);
-                }
+        // 2. Search Logic
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $term = "%{$search}%";
+                $q->where('customers.first_name', 'ILIKE', $term)
+                  ->orWhere('customers.last_name', 'ILIKE', $term)
+                  ->orWhereRaw("customers.first_name || ' ' || customers.last_name ILIKE ?", [$term])
+                  ->orWhereRaw("orders.order_number::text ILIKE ?", [$term]);
             });
         }
 
-        // 4. Deterministic Ordering for Cursor Pagination
-        // Note: We add orders.id at the end to ensure uniqueness for the cursor
-        $ordersQuery->orderByRaw("
-                CASE WHEN payments.payment_status = 'Paid' THEN 1 ELSE 0 END ASC,
-                CASE WHEN payments.payment_status = 'Paid' THEN orders.order_date END ASC,
-                CASE WHEN payments.payment_status != 'Paid' THEN orders.order_date END DESC
-            ")
-            ->orderBy('orders.id', 'desc');
+        // 3. Paginate
+        // We sort by orders.id to ensure the cursor is unique and stable
+        $orders = $query->orderBy('orders.id', 'desc')->cursorPaginate($perPage);
 
-        $orders = $ordersQuery->cursorPaginate($perPage);
-
-        $orders->getCollection()->transform(function ($order) {
-            $lastOrderItem = $order->items->last();
+        // 4. Map Data
+        // Use the relations loaded in step 1. Do NOT call Order::find() here.
+        $transformed = collect($orders->items())->map(function ($order) {
+            $lastItem = $order->items ? $order->items->last() : null;
 
             return [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
                 'formatted_id' => str_pad($order->order_number, 4, '0', STR_PAD_LEFT),
-                'first_name' => $order->first_name,
-                'last_name' => $order->last_name,
-                'customer_full_name' => trim($order->first_name.' '.$order->last_name),
-
-                // ADD THESE MISSING FIELDS HERE:
+                'first_name' => $order->cust_fn,
+                'last_name' => $order->cust_ln,
+                'customer_full_name' => trim(($order->cust_fn ?? '') . ' ' . ($order->cust_ln ?? '')),
                 'address' => $order->address,
-                'contact_number' => $order->contact_number,
-                'social_handle' => $order->social_handle,
-                'payment_status' => $order->payment_status,
-
+                'contact_number' => $order->cust_phone,
+                'social_handle' => $order->cust_social,
+                'payment_status' => $order->pay_stat ?? 'Unpaid',
                 'order_date' => $order->order_date,
                 'total' => $order->total,
-                'items_count' => $order->items->count(),
                 'items' => $order->items,
                 'payment' => $order->payment,
-                'payment_image_url' => $order->payment && $order->payment->payment_image
-                    ? asset('storage/'.$order->payment->payment_image)
-                    : null,
-                'created_at' => $order->created_at,
-                'last_item_image' => $lastOrderItem && $lastOrderItem->item
-            ? $lastOrderItem->item->image
-            : null,
+                'last_item_image' => ($lastItem && $lastItem->item) ? $lastItem->item->image : null,
             ];
         });
 
-        return response()->json($orders);
+        return response()->json([
+            'data' => $transformed,
+            'next_cursor' => $orders->nextCursor() ? $orders->nextCursor()->encode() : null,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Order Index Error: ' . $e->getMessage());
+        return response()->json(['error' => 'Internal Server Error', 'details' => $e->getMessage()], 500);
     }
+}
 
     public function store(Request $request)
     {
