@@ -16,17 +16,17 @@ class DatabaseSeeder extends Seeder
     {
         // ─── Main business account ────────────────────────────────
         User::create([
-            'name' => 'SleepyWears',
+            'name' => 'Sleepywears',
             'email' => 'lovelypintes@gmail.com',
             'password' => bcrypt('password'),
         ]);
 
         // ─── Additional accounts ──────────────────────────────────
         $users = [
-            ['name' => 'ToyotaZ', 'email' => 'ruthmayreginos2786@gmail.com'],
-            ['name' => 'SamsungZ', 'email' => 'sofiaisabellatina@gmail.com'],
-            ['name' => 'GoogleZ', 'email' => 'myriahvielle619@gmail.com'],
-            ['name' => 'Sleepywears1', 'email' => 'angelesalyannamarie@gmail.com'],
+            ['name' => 'Sleepywears', 'email' => 'ruthmayreginos2786@gmail.com'],
+            ['name' => 'Sleepywears', 'email' => 'sofiaisabellatina@gmail.com'],
+            ['name' => 'Sleepywears', 'email' => 'myriahvielle619@gmail.com'],
+            ['name' => 'Sleepywears', 'email' => 'angelesalyannamarie@gmail.com'],
             ['name' => 'Sleepywears', 'email' => 'sleepywears.ph1@gmail.com'],
 
             // ─── Instructors accounts ────────────────────────────────
