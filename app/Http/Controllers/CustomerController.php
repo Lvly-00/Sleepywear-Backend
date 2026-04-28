@@ -14,56 +14,50 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 15);
-        $search = trim($request->input('search', ''));
-        $driver = DB::connection()->getDriverName();
+        try {
+            $perPage = $request->input('per_page', 20);
+            $search = trim($request->input('search', ''));
 
-        $query = Customer::with(['orders.invoice', 'addresses'])
-            ->where('user_id', auth()->id());
+            $query = Customer::with(['addresses']) // Reduced relations for speed
+                ->where('user_id', auth()->id());
 
-        if (! empty($search)) {
-            $query->where(function ($q) use ($search, $driver) {
+            if (! empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $term = "%{$search}%";
+                    $q->where('first_name', 'LIKE', $term)
+                        ->orWhere('last_name', 'LIKE', $term)
+                        ->orWhere('contact_number', 'LIKE', $term);
 
-                if ($driver === 'pgsql') {
-                    $fullNameSql = "first_name || ' ' || last_name";
+                    // Cross-database compatible Full Name search
+                    $driver = DB::connection()->getDriverName();
+                    if ($driver === 'sqlite' || $driver === 'pgsql') {
+                        $q->orWhereRaw("first_name || ' ' || last_name LIKE ?", [$term]);
+                    } else {
+                        $q->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$term]);
+                    }
+                });
+            }
 
-                    $q->where('first_name', 'ILIKE', "%{$search}%")
-                        ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                        ->orWhereRaw("$fullNameSql ILIKE ?", ["%{$search}%"])
-                        ->orWhere('contact_number', 'ILIKE', "%{$search}%");
+            // cursorPaginate requires a stable sort order
+            $customers = $query->orderBy('first_name', 'asc')
+                ->orderBy('id', 'asc')
+                ->cursorPaginate($perPage);
 
-                } else {
-                    $fullNameSql = "CONCAT(first_name, ' ', last_name)";
-
-                    $q->where('first_name', 'LIKE', "%{$search}%")
-                        ->orWhere('last_name', 'LIKE', "%{$search}%")
-                        ->orWhereRaw("$fullNameSql LIKE ?", ["%{$search}%"])
-                        ->orWhere('contact_number', 'LIKE', "%{$search}%");
-                }
+            $customers->through(function ($customer) {
+                return [
+                    'id' => $customer->id,
+                    'first_name' => $customer->first_name,
+                    'last_name' => $customer->last_name,
+                    'contact_number' => $customer->contact_number,
+                    'address' => $customer->addresses->first()?->address ?? 'No address set',
+                ];
             });
+
+            return response()->json($customers);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        $query->orderBy('first_name')
-            ->orderBy('id');
-
-        $customers = $query->cursorPaginate($perPage);
-
-        $customers->through(function ($customer) {
-            return [
-                'id' => $customer->id,
-                'first_name' => $customer->first_name,
-                'last_name' => $customer->last_name,
-                'full_name' => trim($customer->first_name.' '.$customer->last_name),
-                'contact_number' => $customer->contact_number,
-                'social_handle' => $customer->social_handle,
-                'orders' => $customer->orders,
-                'addresses' => $customer->addresses->pluck('address'),
-                'address' => $customer->addresses->first()?->address ?? 'No address set',
-                'created_at' => $customer->created_at,
-            ];
-        });
-
-        return response()->json($customers);
     }
 
     /**
