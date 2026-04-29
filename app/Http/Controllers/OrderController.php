@@ -56,7 +56,17 @@ class OrderController extends Controller
             }
 
             // Paginate
-            $orders = $query->orderBy('orders.id', 'desc')->cursorPaginate($perPage);
+            $orders = $query
+                ->orderByRaw("
+        CASE
+            WHEN payments.payment_status IS NULL THEN 0
+            WHEN payments.payment_status = 'Unpaid' THEN 0
+            WHEN payments.payment_status = 'Paid' THEN 1
+            ELSE 2
+        END ASC
+    ")
+                ->orderBy('orders.id', 'desc')
+                ->cursorPaginate($perPage);
 
             // Transform Data
             $transformed = collect($orders->items())->map(function ($order) {
