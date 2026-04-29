@@ -34,20 +34,20 @@ class DashboardController extends Controller
 
             // Helper for "All Collections" option
             $allUnpaid = Order::where('user_id', $userId)
-                ->whereHas('payment', fn($q) => $q->where('payment_status', '!=', 'Paid'));
+                ->whereHas('payment', fn ($q) => $q->where('payment_status', '!=', 'Paid'));
 
             $kris['all'] = [
                 'id' => 'all',
                 'name' => 'All Collections',
                 'receivables' => (float) $allUnpaid->sum('total'),
                 'unpaid_orders' => $allUnpaid->count(),
-                'dead_stock' => Item::whereHas('collection', fn($q) => $q->where('user_id', $userId))->where('status', 'Available')->count(),
+                'dead_stock' => Item::whereHas('collection', fn ($q) => $q->where('user_id', $userId))->where('status', 'Available')->count(),
             ];
 
             foreach ($collections as $col) {
                 $unpaidInCol = Order::where('orders.user_id', $userId)
-                    ->whereHas('payment', fn($q) => $q->where('payment_status', '!=', 'Paid'))
-                    ->whereHas('items.item', fn($q) => $q->where('collection_id', $col->id));
+                    ->whereHas('payment', fn ($q) => $q->where('payment_status', '!=', 'Paid'))
+                    ->whereHas('items.item', fn ($q) => $q->where('collection_id', $col->id));
 
                 $kris[$col->id] = [
                     'id' => $col->id,
@@ -82,7 +82,9 @@ class DashboardController extends Controller
             $dailySales = [];
             for ($day = 1; $day <= $now->daysInMonth; $day++) {
                 $row = ['date' => $day];
-                foreach ($colNames as $name) { $row[$name] = 0; }
+                foreach ($colNames as $name) {
+                    $row[$name] = 0;
+                }
                 $dailySales[$day] = $row;
             }
 
@@ -99,9 +101,9 @@ class DashboardController extends Controller
             return response()->json([
                 'pi' => $pi,
                 'kris' => $kris,
-                'collections' => $collections->map(fn($c) => ['id' => $c->id, 'name' => $c->name]),
+                'collections' => $collections->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]),
                 'grossIncome' => round((float) $totalRevenue),
-                'netIncome' => round((float) $totalCapital),
+                'netIncome' => round((float) ($totalRevenue - $totalCapital)),
                 'totalItemsSold' => (int) $totalItemsSold,
                 'totalCustomers' => (int) $totalCustomers,
                 'dailySales' => array_values($dailySales),
@@ -110,6 +112,7 @@ class DashboardController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Dashboard Error: '.$e->getMessage());
+
             return response()->json(['message' => 'Server Error'], 500);
         }
     }
